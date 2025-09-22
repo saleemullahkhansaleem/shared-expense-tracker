@@ -47,7 +47,7 @@ export default async function DashboardLayout({
                                 </button>
                             </div>
                             <div className="ml-4 flex items-center md:ml-6">
-                                <UserNav user={session.user} />
+                                <UserNav user={session?.user || {}} />
                             </div>
                         </div>
                     </div>

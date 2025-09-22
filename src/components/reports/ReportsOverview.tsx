@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/utils'
-import { DownloadIcon, EyeIcon } from '@heroicons/react/24/outline'
+import { ArrowDownTrayIcon, EyeIcon } from '@heroicons/react/24/outline'
 
 // Mock data - replace with real data from API
 const mockMonthlyData = [
@@ -93,7 +93,7 @@ export function ReportsOverview() {
                 </Button>
 
                 <Button>
-                    <DownloadIcon className="h-4 w-4 mr-2" />
+                    <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
                     Download PDF
                 </Button>
             </div>
@@ -163,8 +163,8 @@ export function ReportsOverview() {
                                             {formatCurrency(member.amount)}
                                         </span>
                                         <span className={`px-2 py-1 text-xs rounded-full ${member.status === 'PAID'
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-orange-100 text-orange-800'
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-orange-100 text-orange-800'
                                             }`}>
                                             {member.status}
                                         </span>

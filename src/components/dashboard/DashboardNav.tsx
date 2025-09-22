@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import {
     HomeIcon,
     CreditCardIcon,
-    ReceiptIcon,
+    ReceiptPercentIcon,
     ChartBarIcon,
     CogIcon,
     UsersIcon,
@@ -15,7 +15,7 @@ import {
 const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     { name: 'Contributions', href: '/dashboard/contributions', icon: CreditCardIcon },
-    { name: 'Expenses', href: '/dashboard/expenses', icon: ReceiptIcon },
+    { name: 'Expenses', href: '/dashboard/expenses', icon: ReceiptPercentIcon },
     { name: 'Reports', href: '/dashboard/reports', icon: ChartBarIcon },
     { name: 'Members', href: '/dashboard/members', icon: UsersIcon },
     { name: 'Settings', href: '/dashboard/settings', icon: CogIcon },
