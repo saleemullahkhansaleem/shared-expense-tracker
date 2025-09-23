@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
     try {
         const { name, email, password } = await request.json()
@@ -57,10 +59,30 @@ export async function POST(request: NextRequest) {
             { message: 'User created successfully', user },
             { status: 201 }
         )
-    } catch (error) {
+    } catch (error: any) {
         console.error('Signup error:', error)
+        
+        // Check if it's a database connection error
+        if (error.code === 'P1001') {
+            return NextResponse.json(
+                { error: 'Database connection failed. Please try again later.' },
+                { status: 503 }
+            )
+        }
+        
+        // Check if it's a unique constraint error
+        if (error.code === 'P2002') {
+            return NextResponse.json(
+                { error: 'User with this email already exists' },
+                { status: 400 }
+            )
+        }
+        
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { 
+                error: 'Internal server error',
+                details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            },
             { status: 500 }
         )
     }
