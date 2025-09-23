@@ -5,7 +5,11 @@ import { Button } from '@/components/ui/button'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { AddExpenseModal } from './AddExpenseModal'
 
-export function AddExpenseButton() {
+interface AddExpenseButtonProps {
+    onSuccess?: () => void
+}
+
+export function AddExpenseButton({ onSuccess }: AddExpenseButtonProps) {
     const [isModalOpen, setIsModalOpen] = useState(false)
 
     return (
@@ -18,6 +22,7 @@ export function AddExpenseButton() {
             <AddExpenseModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
+                onSuccess={onSuccess}
             />
         </>
     )

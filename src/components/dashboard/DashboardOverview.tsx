@@ -1,7 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
+import { DashboardOverviewSkeleton } from '@/components/ui/skeletons'
 import {
     CreditCardIcon,
     ReceiptPercentIcon,
@@ -9,18 +11,54 @@ import {
     ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 
-// Mock data - replace with real data from API
-const mockData = {
-    totalCollected: 72000,
-    totalExpenses: 45000,
-    remainingBalance: 27000,
-    daysLeft: 15,
-    averageDailySpend: 1800,
-    lowBalanceWarning: false,
+interface DashboardData {
+    totalCollected: number
+    totalExpenses: number
+    remainingBalance: number
+    daysLeft: number
+    averageDailySpend: number
+    lowBalanceWarning: boolean
 }
 
 export function DashboardOverview() {
-    const { totalCollected, totalExpenses, remainingBalance, daysLeft, averageDailySpend, lowBalanceWarning } = mockData
+    const [data, setData] = useState<DashboardData | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                const response = await fetch('/api/dashboard')
+                if (response.ok) {
+                    const dashboardData = await response.json()
+                    setData(dashboardData)
+                }
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchDashboardData()
+    }, [])
+
+    if (loading) {
+        return <DashboardOverviewSkeleton />
+    }
+
+    if (!data) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Error loading data</CardTitle>
+                    </CardHeader>
+                </Card>
+            </div>
+        )
+    }
+
+    const { totalCollected, totalExpenses, remainingBalance, daysLeft, averageDailySpend, lowBalanceWarning } = data
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

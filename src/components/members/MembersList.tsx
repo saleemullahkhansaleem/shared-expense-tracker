@@ -1,85 +1,57 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatCurrency } from '@/lib/utils'
 import { UserPlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { MembersListSkeleton } from '@/components/ui/skeletons'
 
-// Mock data - replace with real data from API
-const mockMembers = [
-    {
-        id: '1',
-        name: 'Ahmed',
-        email: 'ahmed@example.com',
-        role: 'ADMIN',
-        joinedAt: new Date('2024-01-01'),
-        totalContributions: 144000,
-        totalExpenses: 96000,
-        currentBalance: 48000
-    },
-    {
-        id: '2',
-        name: 'Fatima',
-        email: 'fatima@example.com',
-        role: 'USER',
-        joinedAt: new Date('2024-01-01'),
-        totalContributions: 144000,
-        totalExpenses: 120000,
-        currentBalance: 24000
-    },
-    {
-        id: '3',
-        name: 'Hassan',
-        email: 'hassan@example.com',
-        role: 'USER',
-        joinedAt: new Date('2024-01-01'),
-        totalContributions: 144000,
-        totalExpenses: 72000,
-        currentBalance: 72000
-    },
-    {
-        id: '4',
-        name: 'Aisha',
-        email: 'aisha@example.com',
-        role: 'USER',
-        joinedAt: new Date('2024-01-01'),
-        totalContributions: 144000,
-        totalExpenses: 80000,
-        currentBalance: 64000
-    },
-    {
-        id: '5',
-        name: 'Omar',
-        email: 'omar@example.com',
-        role: 'USER',
-        joinedAt: new Date('2024-01-01'),
-        totalContributions: 144000,
-        totalExpenses: 84000,
-        currentBalance: 60000
-    },
-    {
-        id: '6',
-        name: 'Zara',
-        email: 'zara@example.com',
-        role: 'USER',
-        joinedAt: new Date('2024-01-01'),
-        totalContributions: 120000,
-        totalExpenses: 40000,
-        currentBalance: 80000
-    }
-]
+interface Member {
+    id: string
+    name: string
+    email: string
+    role: 'ADMIN' | 'USER'
+    joinedAt: string
+    totalContributions: number
+    totalExpenses: number
+    currentBalance: number
+}
 
 const roles = ['ADMIN', 'USER']
 
 export function MembersList() {
+    const [members, setMembers] = useState<Member[]>([])
+    const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedRole, setSelectedRole] = useState('All')
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
 
-    const filteredMembers = mockMembers.filter(member => {
+    useEffect(() => {
+        const fetchMembers = async () => {
+            try {
+                const params = new URLSearchParams()
+                if (selectedRole !== 'All') params.append('role', selectedRole)
+                if (searchTerm) params.append('search', searchTerm)
+
+                const response = await fetch(`/api/members?${params}`)
+                if (response.ok) {
+                    const data = await response.json()
+                    setMembers(data)
+                }
+            } catch (error) {
+                console.error('Error fetching members:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchMembers()
+    }, [searchTerm, selectedRole])
+
+    const filteredMembers = members.filter(member => {
         const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             member.email.toLowerCase().includes(searchTerm.toLowerCase())
         const matchesRole = selectedRole === 'All' || member.role === selectedRole
@@ -91,6 +63,10 @@ export function MembersList() {
     const totalContributions = filteredMembers.reduce((sum, member) => sum + member.totalContributions, 0)
     const totalExpenses = filteredMembers.reduce((sum, member) => sum + member.totalExpenses, 0)
     const totalBalance = filteredMembers.reduce((sum, member) => sum + member.currentBalance, 0)
+
+    if (loading) {
+        return <MembersListSkeleton />
+    }
 
     return (
         <div className="space-y-6">
@@ -185,8 +161,8 @@ export function MembersList() {
                                     <div className="flex items-center space-x-3">
                                         <h4 className="font-medium text-gray-900">{member.name}</h4>
                                         <span className={`px-2 py-1 text-xs rounded-full ${member.role === 'ADMIN'
-                                                ? 'bg-purple-100 text-purple-800'
-                                                : 'bg-gray-100 text-gray-800'
+                                            ? 'bg-purple-100 text-purple-800'
+                                            : 'bg-gray-100 text-gray-800'
                                             }`}>
                                             {member.role}
                                         </span>
@@ -194,7 +170,7 @@ export function MembersList() {
                                     <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                                         <span>{member.email}</span>
                                         <span>•</span>
-                                        <span>Joined: {member.joinedAt.toLocaleDateString()}</span>
+                                        <span>Joined: {new Date(member.joinedAt).toLocaleDateString()}</span>
                                     </div>
                                     <div className="flex items-center space-x-6 mt-2 text-sm">
                                         <span className="text-green-600">

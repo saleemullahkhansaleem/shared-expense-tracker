@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -9,6 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 interface AddExpenseModalProps {
     isOpen: boolean
     onClose: () => void
+    onSuccess?: () => void
+}
+
+interface User {
+    id: string
+    name: string
+    email: string
+    role: string
 }
 
 const categories = ['Milk', 'Chicken', 'Vegetables', 'Other']
@@ -17,37 +25,79 @@ const paymentSources = [
     { value: 'POCKET', label: 'From Own Pocket' }
 ]
 
-export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
+export function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpenseModalProps) {
+    const [users, setUsers] = useState<User[]>([])
     const [formData, setFormData] = useState({
         title: '',
         category: '',
         amount: '',
         date: new Date().toISOString().split('T')[0],
-        paymentSource: ''
+        paymentSource: '',
+        userId: ''
     })
     const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState('')
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchUsers()
+        }
+    }, [isOpen])
+
+    const fetchUsers = async () => {
+        try {
+            const response = await fetch('/api/users')
+            if (response.ok) {
+                const usersData = await response.json()
+                setUsers(usersData)
+            }
+        } catch (error) {
+            console.error('Error fetching users:', error)
+        }
+    }
 
     if (!isOpen) return null
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
+        setError('')
 
         try {
-            // TODO: Implement API call to add expense
-            console.log('Adding expense:', formData)
-
-            // Reset form and close modal
-            setFormData({
-                title: '',
-                category: '',
-                amount: '',
-                date: new Date().toISOString().split('T')[0],
-                paymentSource: ''
+            const response = await fetch('/api/expenses', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    title: formData.title,
+                    category: formData.category,
+                    amount: parseFloat(formData.amount),
+                    date: formData.date,
+                    paymentSource: formData.paymentSource,
+                    userId: formData.userId
+                })
             })
-            onClose()
+
+            if (response.ok) {
+                // Reset form and close modal
+                setFormData({
+                    title: '',
+                    category: '',
+                    amount: '',
+                    date: new Date().toISOString().split('T')[0],
+                    paymentSource: '',
+                    userId: ''
+                })
+                onSuccess?.()
+                onClose()
+            } else {
+                const errorData = await response.json()
+                setError(errorData.error || 'Failed to add expense')
+            }
         } catch (error) {
             console.error('Error adding expense:', error)
+            setError('Failed to add expense. Please try again.')
         } finally {
             setIsLoading(false)
         }
@@ -69,6 +119,30 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                                {error}
+                            </div>
+                        )}
+
+                        <div>
+                            <label htmlFor="user" className="block text-sm font-medium text-gray-700 mb-1">
+                                Member
+                            </label>
+                            <Select value={formData.userId} onValueChange={(value) => handleChange('userId', value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select member" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {users.map((user) => (
+                                        <SelectItem key={user.id} value={user.id}>
+                                            {user.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         <div>
                             <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
                                 Expense Title
@@ -158,7 +232,7 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={isLoading}
+                                disabled={isLoading || !formData.userId || !formData.title || !formData.category || !formData.amount || !formData.paymentSource}
                                 className="flex-1"
                             >
                                 {isLoading ? 'Adding...' : 'Add Expense'}

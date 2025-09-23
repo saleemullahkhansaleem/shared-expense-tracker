@@ -1,90 +1,88 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { AddContributionButton } from './AddContributionButton'
+import { ContributionsListSkeleton } from '@/components/ui/skeletons'
 
-// Mock data - replace with real data from API
-const mockContributions = [
-    {
-        id: '1',
-        userName: 'Ahmed',
-        amount: 12000,
-        month: '2025-01',
-        date: new Date('2025-01-01'),
-        status: 'PAID'
-    },
-    {
-        id: '2',
-        userName: 'Fatima',
-        amount: 12000,
-        month: '2025-01',
-        date: new Date('2025-01-02'),
-        status: 'PAID'
-    },
-    {
-        id: '3',
-        userName: 'Hassan',
-        amount: 12000,
-        month: '2025-01',
-        date: new Date('2025-01-03'),
-        status: 'PAID'
-    },
-    {
-        id: '4',
-        userName: 'Aisha',
-        amount: 12000,
-        month: '2025-01',
-        date: new Date('2025-01-04'),
-        status: 'PAID'
-    },
-    {
-        id: '5',
-        userName: 'Omar',
-        amount: 12000,
-        month: '2025-01',
-        date: new Date('2025-01-05'),
-        status: 'PAID'
-    },
-    {
-        id: '6',
-        userName: 'Zara',
-        amount: 0,
-        month: '2025-01',
-        date: null,
-        status: 'PENDING'
+interface Contribution {
+    id: string
+    amount: number
+    month: string
+    createdAt: string
+    user: {
+        id: string
+        name: string
+        email: string
     }
-]
+}
 
 const months = ['2025-01', '2024-12', '2024-11']
 const statuses = ['All', 'PAID', 'PENDING']
 
 export function ContributionsList() {
+    const [contributions, setContributions] = useState<Contribution[]>([])
+    const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedMonth, setSelectedMonth] = useState('2025-01')
     const [selectedStatus, setSelectedStatus] = useState('All')
 
-    const filteredContributions = mockContributions.filter(contribution => {
-        const matchesSearch = contribution.userName.toLowerCase().includes(searchTerm.toLowerCase())
+    const fetchContributions = async () => {
+        try {
+            const params = new URLSearchParams()
+            if (selectedMonth !== 'All') params.append('month', selectedMonth)
+            if (selectedStatus !== 'All') params.append('status', selectedStatus)
+            if (searchTerm) params.append('search', searchTerm)
+
+            const response = await fetch(`/api/contributions?${params}`)
+            if (response.ok) {
+                const data = await response.json()
+                setContributions(data)
+            }
+        } catch (error) {
+            console.error('Error fetching contributions:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchContributions()
+    }, [searchTerm, selectedMonth, selectedStatus])
+
+    const filteredContributions = contributions.filter(contribution => {
+        const matchesSearch = contribution.user.name.toLowerCase().includes(searchTerm.toLowerCase())
         const matchesMonth = selectedMonth === 'All' || contribution.month === selectedMonth
-        const matchesStatus = selectedStatus === 'All' || contribution.status === selectedStatus
+        const matchesStatus = selectedStatus === 'All' ||
+            (selectedStatus === 'PAID' && contribution.amount > 0) ||
+            (selectedStatus === 'PENDING' && contribution.amount === 0)
 
         return matchesSearch && matchesMonth && matchesStatus
     })
 
     const totalCollected = filteredContributions
-        .filter(c => c.status === 'PAID')
+        .filter(c => c.amount > 0)
         .reduce((sum, contribution) => sum + contribution.amount, 0)
 
-    const pendingCount = filteredContributions.filter(c => c.status === 'PENDING').length
+    const pendingCount = filteredContributions.filter(c => c.amount === 0).length
+
+    if (loading) {
+        return <ContributionsListSkeleton />
+    }
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Monthly Contributions</CardTitle>
-                <CardDescription>Track contributions for {selectedMonth}</CardDescription>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>Monthly Contributions</CardTitle>
+                        <CardDescription>Track contributions for {selectedMonth}</CardDescription>
+                    </div>
+                    <AddContributionButton onSuccess={fetchContributions} />
+                </div>
             </CardHeader>
             <CardContent>
                 {/* Filters */}
@@ -146,39 +144,42 @@ export function ContributionsList() {
 
                 {/* Contributions List */}
                 <div className="space-y-3">
-                    {filteredContributions.map((contribution) => (
-                        <div key={contribution.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                            <div className="flex-1">
-                                <div className="flex items-center space-x-3">
-                                    <h4 className="font-medium text-gray-900">{contribution.userName}</h4>
-                                    <span className={`px-2 py-1 text-xs rounded-full ${contribution.status === 'PAID'
+                    {filteredContributions.map((contribution) => {
+                        const status = contribution.amount > 0 ? 'PAID' : 'PENDING'
+                        return (
+                            <div key={contribution.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                <div className="flex-1">
+                                    <div className="flex items-center space-x-3">
+                                        <h4 className="font-medium text-gray-900">{contribution.user.name}</h4>
+                                        <span className={`px-2 py-1 text-xs rounded-full ${status === 'PAID'
                                             ? 'bg-green-100 text-green-800'
                                             : 'bg-orange-100 text-orange-800'
+                                            }`}>
+                                            {status}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
+                                        <span>Month: {contribution.month}</span>
+                                        {status === 'PAID' && (
+                                            <>
+                                                <span>•</span>
+                                                <span>Paid: {formatDate(new Date(contribution.createdAt))}</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className={`font-semibold ${status === 'PAID' ? 'text-gray-900' : 'text-gray-400'
                                         }`}>
-                                        {contribution.status}
-                                    </span>
-                                </div>
-                                <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                                    <span>Month: {contribution.month}</span>
-                                    {contribution.date && (
-                                        <>
-                                            <span>•</span>
-                                            <span>Paid: {formatDate(contribution.date)}</span>
-                                        </>
-                                    )}
+                                        {status === 'PAID'
+                                            ? formatCurrency(contribution.amount)
+                                            : 'Not paid'
+                                        }
+                                    </div>
                                 </div>
                             </div>
-                            <div className="text-right">
-                                <div className={`font-semibold ${contribution.status === 'PAID' ? 'text-gray-900' : 'text-gray-400'
-                                    }`}>
-                                    {contribution.status === 'PAID'
-                                        ? formatCurrency(contribution.amount)
-                                        : 'Not paid'
-                                    }
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
 
                 {filteredContributions.length === 0 && (

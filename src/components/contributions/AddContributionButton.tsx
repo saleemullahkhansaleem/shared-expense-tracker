@@ -5,7 +5,11 @@ import { Button } from '@/components/ui/button'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { AddContributionModal } from './AddContributionModal'
 
-export function AddContributionButton() {
+interface AddContributionButtonProps {
+    onSuccess?: () => void
+}
+
+export function AddContributionButton({ onSuccess }: AddContributionButtonProps) {
     const [isModalOpen, setIsModalOpen] = useState(false)
 
     return (
@@ -18,6 +22,7 @@ export function AddContributionButton() {
             <AddContributionModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
+                onSuccess={onSuccess}
             />
         </>
     )

@@ -1,71 +1,63 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { AddExpenseButton } from './AddExpenseButton'
+import { ExpensesListSkeleton } from '@/components/ui/skeletons'
 
-// Mock data - replace with real data from API
-const mockExpenses = [
-    {
-        id: '1',
-        title: 'Bought Milk',
-        category: 'Milk',
-        amount: 1200,
-        date: new Date('2025-01-15'),
-        paymentSource: 'COLLECTED',
-        userName: 'Ahmed'
-    },
-    {
-        id: '2',
-        title: 'Chicken for dinner',
-        category: 'Chicken',
-        amount: 2500,
-        date: new Date('2025-01-14'),
-        paymentSource: 'COLLECTED',
-        userName: 'Fatima'
-    },
-    {
-        id: '3',
-        title: 'Fresh vegetables',
-        category: 'Vegetables',
-        amount: 800,
-        date: new Date('2025-01-13'),
-        paymentSource: 'POCKET',
-        userName: 'Hassan'
-    },
-    {
-        id: '4',
-        title: 'Bread and eggs',
-        category: 'Other',
-        amount: 450,
-        date: new Date('2025-01-12'),
-        paymentSource: 'COLLECTED',
-        userName: 'Aisha'
-    },
-    {
-        id: '5',
-        title: 'Rice and lentils',
-        category: 'Other',
-        amount: 1200,
-        date: new Date('2025-01-11'),
-        paymentSource: 'COLLECTED',
-        userName: 'Omar'
+interface Expense {
+    id: string
+    title: string
+    category: string
+    amount: number
+    date: string
+    paymentSource: 'COLLECTED' | 'POCKET'
+    user: {
+        id: string
+        name: string
+        email: string
     }
-]
+}
 
 const categories = ['All', 'Milk', 'Chicken', 'Vegetables', 'Other']
 const paymentSources = ['All', 'COLLECTED', 'POCKET']
 
 export function ExpensesList() {
+    const [expenses, setExpenses] = useState<Expense[]>([])
+    const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedCategory, setSelectedCategory] = useState('All')
     const [selectedPaymentSource, setSelectedPaymentSource] = useState('All')
 
-    const filteredExpenses = mockExpenses.filter(expense => {
+    const fetchExpenses = async () => {
+        try {
+            const params = new URLSearchParams()
+            if (selectedCategory !== 'All') params.append('category', selectedCategory)
+            if (selectedPaymentSource !== 'All') params.append('paymentSource', selectedPaymentSource)
+            if (searchTerm) params.append('search', searchTerm)
+
+            const response = await fetch(`/api/expenses?${params}`)
+            if (response.ok) {
+                const data = await response.json()
+                setExpenses(data)
+            }
+        } catch (error) {
+            console.error('Error fetching expenses:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchExpenses()
+    }, [searchTerm, selectedCategory, selectedPaymentSource])
+
+    const filteredExpenses = expenses.filter(expense => {
         const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            expense.userName.toLowerCase().includes(searchTerm.toLowerCase())
+            expense.user.name.toLowerCase().includes(searchTerm.toLowerCase())
         const matchesCategory = selectedCategory === 'All' || expense.category === selectedCategory
         const matchesPaymentSource = selectedPaymentSource === 'All' || expense.paymentSource === selectedPaymentSource
 
@@ -74,11 +66,20 @@ export function ExpensesList() {
 
     const totalAmount = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0)
 
+    if (loading) {
+        return <ExpensesListSkeleton />
+    }
+
     return (
         <Card>
             <CardHeader>
-                <CardTitle>All Expenses</CardTitle>
-                <CardDescription>Filter and view all expense entries</CardDescription>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>All Expenses</CardTitle>
+                        <CardDescription>Filter and view all expense entries</CardDescription>
+                    </div>
+                    <AddExpenseButton onSuccess={fetchExpenses} />
+                </div>
             </CardHeader>
             <CardContent>
                 {/* Filters */}
@@ -135,8 +136,8 @@ export function ExpensesList() {
                                 <div className="flex items-center space-x-3">
                                     <h4 className="font-medium text-gray-900">{expense.title}</h4>
                                     <span className={`px-2 py-1 text-xs rounded-full ${expense.paymentSource === 'COLLECTED'
-                                            ? 'bg-blue-100 text-blue-800'
-                                            : 'bg-green-100 text-green-800'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : 'bg-green-100 text-green-800'
                                         }`}>
                                         {expense.paymentSource === 'COLLECTED' ? 'Collected' : 'Pocket'}
                                     </span>
@@ -144,9 +145,9 @@ export function ExpensesList() {
                                 <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                                     <span className="font-medium">{expense.category}</span>
                                     <span>•</span>
-                                    <span>{expense.userName}</span>
+                                    <span>{expense.user.name}</span>
                                     <span>•</span>
-                                    <span>{formatDate(expense.date)}</span>
+                                    <span>{formatDate(new Date(expense.date))}</span>
                                 </div>
                             </div>
                             <div className="text-right">

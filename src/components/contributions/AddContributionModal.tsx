@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -9,25 +9,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 interface AddContributionModalProps {
     isOpen: boolean
     onClose: () => void
+    onSuccess?: () => void
 }
 
-// Mock data - replace with real data from API
-const mockMembers = [
-    { id: '1', name: 'Ahmed' },
-    { id: '2', name: 'Fatima' },
-    { id: '3', name: 'Hassan' },
-    { id: '4', name: 'Aisha' },
-    { id: '5', name: 'Omar' },
-    { id: '6', name: 'Zara' },
-]
+interface User {
+    id: string
+    name: string
+    email: string
+    role: string
+}
 
 const months = [
     { value: '2025-01', label: 'January 2025' },
     { value: '2025-02', label: 'February 2025' },
     { value: '2025-03', label: 'March 2025' },
+    { value: '2025-04', label: 'April 2025' },
+    { value: '2025-05', label: 'May 2025' },
+    { value: '2025-06', label: 'June 2025' },
 ]
 
-export function AddContributionModal({ isOpen, onClose }: AddContributionModalProps) {
+export function AddContributionModal({ isOpen, onClose, onSuccess }: AddContributionModalProps) {
+    const [users, setUsers] = useState<User[]>([])
     const [formData, setFormData] = useState({
         memberId: '',
         amount: '',
@@ -35,27 +37,63 @@ export function AddContributionModal({ isOpen, onClose }: AddContributionModalPr
         date: new Date().toISOString().split('T')[0],
     })
     const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState('')
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchUsers()
+        }
+    }, [isOpen])
+
+    const fetchUsers = async () => {
+        try {
+            const response = await fetch('/api/users')
+            if (response.ok) {
+                const usersData = await response.json()
+                setUsers(usersData)
+            }
+        } catch (error) {
+            console.error('Error fetching users:', error)
+        }
+    }
 
     if (!isOpen) return null
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
+        setError('')
 
         try {
-            // TODO: Implement API call to add contribution
-            console.log('Adding contribution:', formData)
-
-            // Reset form and close modal
-            setFormData({
-                memberId: '',
-                amount: '',
-                month: '',
-                date: new Date().toISOString().split('T')[0],
+            const response = await fetch('/api/contributions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: formData.memberId,
+                    amount: parseFloat(formData.amount),
+                    month: formData.month
+                })
             })
-            onClose()
+
+            if (response.ok) {
+                // Reset form and close modal
+                setFormData({
+                    memberId: '',
+                    amount: '',
+                    month: '',
+                    date: new Date().toISOString().split('T')[0],
+                })
+                onSuccess?.()
+                onClose()
+            } else {
+                const errorData = await response.json()
+                setError(errorData.error || 'Failed to add contribution')
+            }
         } catch (error) {
             console.error('Error adding contribution:', error)
+            setError('Failed to add contribution. Please try again.')
         } finally {
             setIsLoading(false)
         }
@@ -68,7 +106,7 @@ export function AddContributionModal({ isOpen, onClose }: AddContributionModalPr
         }))
     }
 
-    const selectedMember = mockMembers.find(m => m.id === formData.memberId)
+    const selectedMember = users.find(m => m.id === formData.memberId)
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -79,6 +117,12 @@ export function AddContributionModal({ isOpen, onClose }: AddContributionModalPr
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                                {error}
+                            </div>
+                        )}
+
                         <div>
                             <label htmlFor="member" className="block text-sm font-medium text-gray-700 mb-1">
                                 Member
@@ -88,7 +132,7 @@ export function AddContributionModal({ isOpen, onClose }: AddContributionModalPr
                                     <SelectValue placeholder="Select member" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {mockMembers.map((member) => (
+                                    {users.map((member) => (
                                         <SelectItem key={member.id} value={member.id}>
                                             {member.name}
                                         </SelectItem>
