@@ -6,7 +6,9 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
     try {
+        console.log('Signup request received')
         const { name, email, password } = await request.json()
+        console.log('Signup data:', { name, email, password: password ? '***' : 'missing' })
 
         // Validate input
         if (!name || !email || !password) {
@@ -24,9 +26,11 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if user already exists
+        console.log('Checking if user exists:', email)
         const existingUser = await prisma.user.findUnique({
             where: { email }
         })
+        console.log('Existing user check result:', existingUser ? 'User exists' : 'User does not exist')
 
         if (existingUser) {
             return NextResponse.json(
@@ -36,9 +40,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Hash password
+        console.log('Hashing password...')
         const hashedPassword = await bcrypt.hash(password, 12)
+        console.log('Password hashed successfully')
 
         // Create user
+        console.log('Creating user in database...')
         const user = await prisma.user.create({
             data: {
                 name,
@@ -54,6 +61,7 @@ export async function POST(request: NextRequest) {
                 createdAt: true,
             }
         })
+        console.log('User created successfully:', user.email)
 
         return NextResponse.json(
             { message: 'User created successfully', user },
