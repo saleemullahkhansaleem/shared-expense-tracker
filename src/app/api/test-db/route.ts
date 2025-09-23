@@ -6,11 +6,11 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
     try {
         console.log('Testing database connection...')
-        
+
         // Test database connection
         const userCount = await prisma.user.count()
         console.log('Database connection successful. User count:', userCount)
-        
+
         return NextResponse.json({
             success: true,
             message: 'Database connection successful',
@@ -19,7 +19,7 @@ export async function GET() {
         })
     } catch (error: any) {
         console.error('Database connection test failed:', error)
-        
+
         return NextResponse.json({
             success: false,
             error: error.message,
