@@ -1,11 +1,9 @@
 import { NextAuthOptions } from "next-auth"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 
 export const authOptions: NextAuthOptions = {
-    adapter: PrismaAdapter(prisma),
     providers: [
         CredentialsProvider({
             name: "credentials",
@@ -14,40 +12,53 @@ export const authOptions: NextAuthOptions = {
                 password: { label: "Password", type: "password" }
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) {
-                    return null
-                }
-
-                const user = await prisma.user.findUnique({
-                    where: {
-                        email: credentials.email
+                try {
+                    if (!credentials?.email || !credentials?.password) {
+                        console.log('Missing credentials')
+                        return null
                     }
-                })
 
-                if (!user) {
+                    const user = await prisma.user.findUnique({
+                        where: {
+                            email: credentials.email
+                        }
+                    })
+
+                    if (!user) {
+                        console.log('User not found:', credentials.email)
+                        return null
+                    }
+
+                    const isPasswordValid = await bcrypt.compare(
+                        credentials.password,
+                        user.password
+                    )
+
+                    if (!isPasswordValid) {
+                        console.log('Invalid password for user:', credentials.email)
+                        return null
+                    }
+
+                    console.log('User authenticated successfully:', user.email)
+                    return {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                        role: user.role,
+                    }
+                } catch (error) {
+                    console.error('Authorization error:', error)
                     return null
-                }
-
-                const isPasswordValid = await bcrypt.compare(
-                    credentials.password,
-                    user.password
-                )
-
-                if (!isPasswordValid) {
-                    return null
-                }
-
-                return {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                    role: user.role,
                 }
             }
         })
     ],
     session: {
-        strategy: "jwt"
+        strategy: "jwt",
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+    },
+    jwt: {
+        maxAge: 30 * 24 * 60 * 60, // 30 days
     },
     callbacks: {
         async jwt({ token, user }) {
@@ -67,5 +78,7 @@ export const authOptions: NextAuthOptions = {
     },
     pages: {
         signIn: "/auth/signin",
-    }
+    },
+    debug: process.env.NODE_ENV === "development",
+    secret: process.env.NEXTAUTH_SECRET,
 }
