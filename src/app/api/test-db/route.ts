@@ -9,18 +9,18 @@ export async function GET() {
         console.log('Testing database connection...')
         console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL)
         console.log('DIRECT_URL exists:', !!process.env.DIRECT_URL)
-        
+
         // Try different connection approaches
         let userCount = 0
         let connectionMethod = 'default'
-        
+
         try {
             // Try with default prisma client
             userCount = await prisma.user.count()
             connectionMethod = 'default-prisma'
         } catch (defaultError: any) {
             console.log('Default connection failed, trying fresh client...')
-            
+
             try {
                 // Try with fresh Prisma client
                 const freshPrisma = new PrismaClient({
@@ -35,7 +35,7 @@ export async function GET() {
                 await freshPrisma.$disconnect()
             } catch (freshError: any) {
                 console.log('Fresh client also failed, trying with timeout...')
-                
+
                 // Try with timeout
                 const timeoutPrisma = new PrismaClient({
                     datasources: {
@@ -44,11 +44,11 @@ export async function GET() {
                         }
                     }
                 })
-                
-                const timeoutPromise = new Promise((_, reject) => 
+
+                const timeoutPromise = new Promise((_, reject) =>
                     setTimeout(() => reject(new Error('Connection timeout after 10s')), 10000)
                 )
-                
+
                 userCount = await Promise.race([
                     timeoutPrisma.user.count(),
                     timeoutPromise
@@ -57,9 +57,9 @@ export async function GET() {
                 await timeoutPrisma.$disconnect()
             }
         }
-        
+
         console.log('Database connection successful. User count:', userCount, 'Method:', connectionMethod)
-        
+
         return NextResponse.json({
             success: true,
             message: 'Database connection successful',
@@ -74,7 +74,7 @@ export async function GET() {
         })
     } catch (error: any) {
         console.error('Database connection test failed:', error)
-        
+
         return NextResponse.json({
             success: false,
             error: error.message,
