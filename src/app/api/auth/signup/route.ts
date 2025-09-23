@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         )
     } catch (error: any) {
         console.error('Signup error:', error)
-        
+
         // Check if it's a database connection error
         if (error.code === 'P1001') {
             return NextResponse.json(
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
                 { status: 503 }
             )
         }
-        
+
         // Check if it's a unique constraint error
         if (error.code === 'P2002') {
             return NextResponse.json(
@@ -77,9 +77,9 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             )
         }
-        
+
         return NextResponse.json(
-            { 
+            {
                 error: 'Internal server error',
                 details: process.env.NODE_ENV === 'development' ? error.message : undefined
             },
