@@ -37,6 +37,12 @@ export async function GET(request: NextRequest) {
           select: {
             amount: true
           }
+        },
+        _count: {
+          select: {
+            contributions: true,
+            expenses: true
+          }
         }
       },
       orderBy: {
@@ -55,10 +61,11 @@ export async function GET(request: NextRequest) {
         name: member.name,
         email: member.email,
         role: member.role,
-        joinedAt: member.createdAt,
+        createdAt: member.createdAt,
         totalContributions,
         totalExpenses,
-        currentBalance
+        currentBalance,
+        _count: member._count
       }
     })
 

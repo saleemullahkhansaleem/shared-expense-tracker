@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,16 +8,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatCurrency } from '@/lib/utils'
 import { UserPlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { MembersListSkeleton } from '@/components/ui/skeletons'
+import { EditUserModal } from './EditUserModal'
+import { UserProfileModal } from './UserProfileModal'
 
 interface Member {
     id: string
     name: string
     email: string
     role: 'ADMIN' | 'USER'
-    joinedAt: string
+    createdAt: string
     totalContributions: number
     totalExpenses: number
     currentBalance: number
+    _count: {
+        contributions: number
+        expenses: number
+    }
 }
 
 const roles = ['ADMIN', 'USER']
@@ -28,28 +34,64 @@ export function MembersList() {
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedRole, setSelectedRole] = useState('All')
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false)
+    const [editingUser, setEditingUser] = useState<Member | null>(null)
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+
+    const fetchMembers = useCallback(async () => {
+        try {
+            const params = new URLSearchParams()
+            if (selectedRole !== 'All') params.append('role', selectedRole)
+            if (searchTerm) params.append('search', searchTerm)
+
+            const response = await fetch(`/api/members?${params}`)
+            if (response.ok) {
+                const data = await response.json()
+                setMembers(data)
+            }
+        } catch (error) {
+            console.error('Error fetching members:', error)
+        } finally {
+            setLoading(false)
+        }
+    }, [selectedRole, searchTerm])
 
     useEffect(() => {
-        const fetchMembers = async () => {
-            try {
-                const params = new URLSearchParams()
-                if (selectedRole !== 'All') params.append('role', selectedRole)
-                if (searchTerm) params.append('search', searchTerm)
+        fetchMembers()
+    }, [fetchMembers])
 
-                const response = await fetch(`/api/members?${params}`)
-                if (response.ok) {
-                    const data = await response.json()
-                    setMembers(data)
-                }
-            } catch (error) {
-                console.error('Error fetching members:', error)
-            } finally {
-                setLoading(false)
-            }
+    const handleEditUser = (user: Member) => {
+        setEditingUser(user)
+        setIsEditModalOpen(true)
+    }
+
+    const handleDeleteUser = async (userId: string) => {
+        if (!confirm('Are you sure you want to delete this member? This action cannot be undone.')) {
+            return
         }
 
-        fetchMembers()
-    }, [searchTerm, selectedRole])
+        try {
+            const response = await fetch(`/api/users/${userId}`, {
+                method: 'DELETE'
+            })
+
+            if (response.ok) {
+                fetchMembers() // Refresh the list
+            } else {
+                const errorData = await response.json()
+                alert(errorData.error || 'Failed to delete member')
+            }
+        } catch (error) {
+            console.error('Error deleting user:', error)
+            alert('Failed to delete member')
+        }
+    }
+
+    const handleViewProfile = (userId: string) => {
+        setSelectedUserId(userId)
+        setIsProfileModalOpen(true)
+    }
 
     const filteredMembers = members.filter(member => {
         const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -159,7 +201,12 @@ export function MembersList() {
                             <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                                 <div className="flex-1">
                                     <div className="flex items-center space-x-3">
-                                        <h4 className="font-medium text-gray-900">{member.name}</h4>
+                                        <button
+                                            onClick={() => handleViewProfile(member.id)}
+                                            className="font-medium text-gray-900 hover:text-blue-600 hover:underline transition-colors"
+                                        >
+                                            {member.name}
+                                        </button>
                                         <span className={`px-2 py-1 text-xs rounded-full ${member.role === 'ADMIN'
                                             ? 'bg-purple-100 text-purple-800'
                                             : 'bg-gray-100 text-gray-800'
@@ -170,7 +217,7 @@ export function MembersList() {
                                     <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                                         <span>{member.email}</span>
                                         <span>•</span>
-                                        <span>Joined: {new Date(member.joinedAt).toLocaleDateString()}</span>
+                                        <span>Joined: {new Date(member.createdAt).toLocaleDateString()}</span>
                                     </div>
                                     <div className="flex items-center space-x-6 mt-2 text-sm">
                                         <span className="text-green-600">
@@ -186,12 +233,21 @@ export function MembersList() {
                                 </div>
 
                                 <div className="flex items-center space-x-2">
-                                    <Button variant="outline" size="sm">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleEditUser(member)}
+                                    >
                                         <PencilIcon className="h-4 w-4 mr-1" />
                                         Edit
                                     </Button>
                                     {member.role !== 'ADMIN' && (
-                                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-red-600 hover:text-red-700"
+                                            onClick={() => handleDeleteUser(member.id)}
+                                        >
                                             <TrashIcon className="h-4 w-4 mr-1" />
                                             Remove
                                         </Button>
@@ -228,6 +284,28 @@ export function MembersList() {
                     </Card>
                 </div>
             )}
+
+            {/* Edit User Modal */}
+            <EditUserModal
+                isOpen={isEditModalOpen}
+                onClose={() => {
+                    setIsEditModalOpen(false)
+                    setEditingUser(null)
+                }}
+                onSuccess={fetchMembers}
+                user={editingUser}
+            />
+
+            {/* User Profile Modal */}
+            <UserProfileModal
+                isOpen={isProfileModalOpen}
+                onClose={() => {
+                    setIsProfileModalOpen(false)
+                    setSelectedUserId(null)
+                }}
+                userId={selectedUserId}
+                onUserUpdate={fetchMembers}
+            />
         </div>
     )
 }

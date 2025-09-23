@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -18,6 +18,7 @@ interface Expense {
     amount: number
     date: string
     paymentSource: 'COLLECTED' | 'POCKET'
+    userId: string
     user: {
         id: string
         name: string
@@ -37,7 +38,7 @@ export function ExpensesList() {
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-    const fetchExpenses = async () => {
+    const fetchExpenses = useCallback(async () => {
         try {
             const params = new URLSearchParams()
             if (selectedCategory !== 'All') params.append('category', selectedCategory)
@@ -54,11 +55,11 @@ export function ExpensesList() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [selectedCategory, selectedPaymentSource, searchTerm])
 
     useEffect(() => {
         fetchExpenses()
-    }, [searchTerm, selectedCategory, selectedPaymentSource])
+    }, [fetchExpenses])
 
     const handleEditExpense = (expense: Expense) => {
         setEditingExpense(expense)

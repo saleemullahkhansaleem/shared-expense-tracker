@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -35,7 +35,7 @@ export function ContributionsList() {
     const [editingContribution, setEditingContribution] = useState<Contribution | null>(null)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-    const fetchContributions = async () => {
+    const fetchContributions = useCallback(async () => {
         try {
             const params = new URLSearchParams()
             if (selectedMonth !== 'All') params.append('month', selectedMonth)
@@ -52,11 +52,11 @@ export function ContributionsList() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [selectedMonth, selectedStatus, searchTerm])
 
     useEffect(() => {
         fetchContributions()
-    }, [searchTerm, selectedMonth, selectedStatus])
+    }, [fetchContributions])
 
     const handleEditContribution = (contribution: Contribution) => {
         setEditingContribution(contribution)
