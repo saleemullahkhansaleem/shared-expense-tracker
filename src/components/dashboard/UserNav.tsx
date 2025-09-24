@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { signOut } from 'next-auth/react'
 import Link from 'next/link'
-import { 
-    UserCircleIcon, 
+import {
+    UserCircleIcon,
     ChevronDownIcon,
     UserIcon,
     Cog6ToothIcon,
@@ -46,7 +46,7 @@ export function UserNav({ user }: UserNavProps) {
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                     {user.name ? getInitials(user.name) : <UserCircleIcon className="h-5 w-5" />}
                 </div>
-                
+
                 {/* User Info (hidden on mobile) */}
                 <div className="hidden md:block text-left">
                     <div className="text-sm font-medium text-gray-900">
@@ -56,7 +56,7 @@ export function UserNav({ user }: UserNavProps) {
                         {user.role?.toLowerCase() || 'member'}
                     </div>
                 </div>
-                
+
                 {/* Dropdown Arrow */}
                 <ChevronDownIcon className={`h-4 w-4 text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -65,11 +65,11 @@ export function UserNav({ user }: UserNavProps) {
             {isDropdownOpen && (
                 <>
                     {/* Backdrop */}
-                    <div 
-                        className="fixed inset-0 z-10" 
+                    <div
+                        className="fixed inset-0 z-10"
                         onClick={() => setIsDropdownOpen(false)}
                     />
-                    
+
                     {/* Dropdown Content */}
                     <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
                         {/* User Info Header */}
@@ -86,11 +86,10 @@ export function UserNav({ user }: UserNavProps) {
                                         {user.email}
                                     </div>
                                     {user.role && (
-                                        <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${
-                                            user.role === 'ADMIN' 
-                                                ? 'bg-purple-100 text-purple-800' 
-                                                : 'bg-gray-100 text-gray-800'
-                                        }`}>
+                                        <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${user.role === 'ADMIN'
+                                            ? 'bg-purple-100 text-purple-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                            }`}>
                                             {user.role === 'ADMIN' ? 'Administrator' : 'Member'}
                                         </div>
                                     )}
@@ -108,7 +107,7 @@ export function UserNav({ user }: UserNavProps) {
                                 <UserIcon className="h-4 w-4 mr-3 text-gray-400" />
                                 My Profile
                             </Link>
-                            
+
                             <Link
                                 href="/dashboard/settings"
                                 className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
