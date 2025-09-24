@@ -27,7 +27,7 @@ interface EditUserModalProps {
 
 const roles = [
     { value: 'ADMIN', label: 'Admin' },
-    { value: 'MEMBER', label: 'Member' }
+    { value: 'USER', label: 'Member' }
 ]
 
 export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModalProps) {
