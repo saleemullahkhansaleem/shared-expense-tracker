@@ -56,11 +56,10 @@ export function PersonalProfile() {
         try {
             const response = await fetch('/api/profile')
             if (response.ok) {
-                const users = await response.json()
-                // For now, get the first user. In a real app, you'd get the logged-in user
-                if (users.length > 0) {
-                    setUserProfile(users[0])
-                }
+                const userProfile = await response.json()
+                setUserProfile(userProfile)
+            } else {
+                console.error('Failed to fetch user profile:', response.status)
             }
         } catch (error) {
             console.error('Error fetching user profile:', error)
@@ -177,8 +176,8 @@ export function PersonalProfile() {
                                 <div>
                                     <span className="text-sm text-gray-600">Role:</span>
                                     <span className={`ml-2 px-2 py-1 text-xs rounded-full ${userProfile.role === 'ADMIN'
-                                            ? 'bg-purple-100 text-purple-800'
-                                            : 'bg-gray-100 text-gray-800'
+                                        ? 'bg-purple-100 text-purple-800'
+                                        : 'bg-gray-100 text-gray-800'
                                         }`}>
                                         {userProfile.role}
                                     </span>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,6 +30,7 @@ interface Member {
 const roles = ['ADMIN', 'USER']
 
 export function MembersList() {
+    const { data: session } = useSession()
     const [members, setMembers] = useState<Member[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
@@ -38,6 +40,9 @@ export function MembersList() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+
+    // Check if current user is admin
+    const isCurrentUserAdmin = (session?.user as any)?.role === 'ADMIN'
 
     const fetchMembers = useCallback(async () => {
         try {
@@ -62,11 +67,21 @@ export function MembersList() {
     }, [fetchMembers])
 
     const handleEditUser = (user: Member) => {
+        if (!isCurrentUserAdmin) {
+            alert('Only administrators can edit users.')
+            return
+        }
+
         setEditingUser(user)
         setIsEditModalOpen(true)
     }
 
     const handleDeleteUser = async (userId: string) => {
+        if (!isCurrentUserAdmin) {
+            alert('Only administrators can delete users.')
+            return
+        }
+
         if (!confirm('Are you sure you want to delete this member? This action cannot be undone.')) {
             return
         }
@@ -136,10 +151,12 @@ export function MembersList() {
                     </Select>
                 </div>
 
-                <Button onClick={() => setIsAddMemberModalOpen(true)}>
-                    <UserPlusIcon className="h-4 w-4 mr-2" />
-                    Add Member
-                </Button>
+                {isCurrentUserAdmin && (
+                    <Button onClick={() => setIsAddMemberModalOpen(true)}>
+                        <UserPlusIcon className="h-4 w-4 mr-2" />
+                        Add Member
+                    </Button>
+                )}
             </div>
 
             {/* Summary Cards */}
@@ -233,24 +250,28 @@ export function MembersList() {
                                 </div>
 
                                 <div className="flex items-center space-x-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleEditUser(member)}
-                                    >
-                                        <PencilIcon className="h-4 w-4 mr-1" />
-                                        Edit
-                                    </Button>
-                                    {member.role !== 'ADMIN' && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="text-red-600 hover:text-red-700"
-                                            onClick={() => handleDeleteUser(member.id)}
-                                        >
-                                            <TrashIcon className="h-4 w-4 mr-1" />
-                                            Remove
-                                        </Button>
+                                    {isCurrentUserAdmin && (
+                                        <>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleEditUser(member)}
+                                            >
+                                                <PencilIcon className="h-4 w-4 mr-1" />
+                                                Edit
+                                            </Button>
+                                            {member.role !== 'ADMIN' && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-red-600 hover:text-red-700"
+                                                    onClick={() => handleDeleteUser(member.id)}
+                                                >
+                                                    <TrashIcon className="h-4 w-4 mr-1" />
+                                                    Remove
+                                                </Button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             </div>

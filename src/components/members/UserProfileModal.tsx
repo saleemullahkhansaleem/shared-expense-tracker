@@ -62,10 +62,11 @@ export function UserProfileModal({ isOpen, onClose, userId, onUserUpdate }: User
 
         setLoading(true)
         try {
-            const response = await fetch('/api/profile')
+            // Use members API to get user profile data
+            const response = await fetch('/api/members')
             if (response.ok) {
-                const users = await response.json()
-                const user = users.find((u: UserProfile) => u.id === userId)
+                const members = await response.json()
+                const user = members.find((member: any) => member.id === userId)
                 if (user) {
                     setUserProfile(user)
                 }
