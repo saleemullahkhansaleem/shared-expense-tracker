@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
@@ -9,19 +9,14 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // Check if user is admin
   const adminCheck = await requireAdmin();
   if (adminCheck) return adminCheck;
 
   try {
     const { id } = params;
     const body = await request.json();
-    const { name, email, role, password } = body;
+    const { name, email, role, password, isActive } = body;
 
-    console.log("PUT /api/users/[id] - Request body:", body);
-    console.log("PUT /api/users/[id] - User ID:", id);
-
-    // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id },
     });
@@ -30,7 +25,6 @@ export async function PUT(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if email is already taken by another user
     if (email && email !== existingUser.email) {
       const emailExists = await prisma.user.findUnique({
         where: { email },
@@ -44,14 +38,39 @@ export async function PUT(
       }
     }
 
-    // Prepare update data
+    if (role && existingUser.role === "ADMIN" && role !== "ADMIN") {
+      const adminCount = await prisma.user.count({
+        where: { role: "ADMIN", isActive: true },
+      });
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { error: "Cannot remove the last active admin" },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (typeof isActive === "boolean" && existingUser.role === "ADMIN") {
+      if (!isActive) {
+        const adminCount = await prisma.user.count({
+          where: { role: "ADMIN", isActive: true },
+        });
+        if (adminCount <= 1) {
+          return NextResponse.json(
+            { error: "Cannot deactivate the last active admin" },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const updateData: any = {};
 
     if (name) updateData.name = name;
     if (email) updateData.email = email;
     if (role) updateData.role = role;
+    if (typeof isActive === "boolean") updateData.isActive = isActive;
 
-    // Only hash and update password if provided
     if (password && password.trim() !== "") {
       const hashedPassword = await bcrypt.hash(password, 12);
       updateData.password = hashedPassword;
@@ -65,6 +84,7 @@ export async function PUT(
         name: true,
         email: true,
         role: true,
+        isActive: true,
         createdAt: true,
         _count: {
           select: {
@@ -92,14 +112,12 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // Check if user is admin
   const adminCheck = await requireAdmin();
   if (adminCheck) return adminCheck;
 
   try {
     const { id } = params;
 
-    // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id },
       include: {
@@ -112,7 +130,6 @@ export async function DELETE(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if user has any contributions or expenses
     if (
       existingUser.contributions.length > 0 ||
       existingUser.expenses.length > 0
@@ -126,16 +143,17 @@ export async function DELETE(
       );
     }
 
-    // Check if this is the last admin
-    const adminCount = await prisma.user.count({
-      where: { role: "ADMIN" },
-    });
+    if (existingUser.role === "ADMIN") {
+      const adminCount = await prisma.user.count({
+        where: { role: "ADMIN", isActive: true },
+      });
 
-    if (existingUser.role === "ADMIN" && adminCount <= 1) {
-      return NextResponse.json(
-        { error: "Cannot delete the last admin user" },
-        { status: 400 }
-      );
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { error: "Cannot delete the last active admin user" },
+          { status: 400 }
+        );
+      }
     }
 
     await prisma.user.delete({

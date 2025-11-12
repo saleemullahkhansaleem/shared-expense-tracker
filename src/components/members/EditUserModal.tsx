@@ -5,12 +5,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 
 interface User {
     id: string
     name: string
     email: string
     role: string
+    isActive?: boolean
     createdAt: string
     _count?: {
         contributions: number
@@ -18,11 +21,28 @@ interface User {
     }
 }
 
+interface UserFormState {
+    name: string
+    email: string
+    role: string
+    password: string
+    isActive: boolean
+}
+
+const defaultFormState: UserFormState = {
+    name: '',
+    email: '',
+    role: '',
+    password: '',
+    isActive: true,
+}
+
 interface EditUserModalProps {
     isOpen: boolean
     onClose: () => void
     onSuccess?: () => void
     user: User | null
+    allowStatusToggle?: boolean
 }
 
 const roles = [
@@ -30,13 +50,8 @@ const roles = [
     { value: 'USER', label: 'Member' }
 ]
 
-export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModalProps) {
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        role: '',
-        password: ''
-    })
+export function EditUserModal({ isOpen, onClose, onSuccess, user, allowStatusToggle = false }: EditUserModalProps) {
+    const [formData, setFormData] = useState<UserFormState>({ ...defaultFormState })
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
 
@@ -46,10 +61,19 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModa
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                password: ''
+                password: '',
+                isActive: user.isActive ?? true,
             })
+        } else if (isOpen && !user) {
+            setFormData({ ...defaultFormState })
         }
     }, [isOpen, user])
+
+    useEffect(() => {
+        if (!isOpen) {
+            setFormData({ ...defaultFormState })
+        }
+    }, [isOpen])
 
     if (!isOpen || !user) return null
 
@@ -68,7 +92,8 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModa
                     name: formData.name,
                     email: formData.email,
                     role: formData.role,
-                    password: formData.password || undefined
+                    password: formData.password || undefined,
+                    ...(allowStatusToggle ? { isActive: formData.isActive } : {}),
                 })
             })
 
@@ -87,7 +112,7 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModa
         }
     }
 
-    const handleChange = (field: string, value: string) => {
+    const handleChange = <K extends keyof UserFormState>(field: K, value: UserFormState[K]) => {
         setFormData(prev => ({
             ...prev,
             [field]: value
@@ -153,6 +178,29 @@ export function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModa
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {allowStatusToggle && (
+                            <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+                                <div>
+                                    <Label htmlFor="user-status" className="text-sm font-medium text-gray-900">
+                                        Account Status
+                                    </Label>
+                                    <p className="text-xs text-gray-500">
+                                        Deactivate to temporarily revoke access without deleting data.
+                                    </p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-xs font-medium text-gray-500">
+                                        {formData.isActive ? 'Active' : 'Inactive'}
+                                    </span>
+                                    <Switch
+                                        id="user-status"
+                                        checked={formData.isActive}
+                                        onCheckedChange={(checked) => handleChange('isActive', checked)}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         <div>
                             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">

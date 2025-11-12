@@ -16,6 +16,7 @@ async function main() {
         email: "ahmed@example.com",
         password: await bcrypt.hash("password123", 10),
         role: "ADMIN",
+        isActive: true,
       },
     }),
     prisma.user.upsert({
@@ -26,6 +27,7 @@ async function main() {
         email: "fatima@example.com",
         password: await bcrypt.hash("password123", 10),
         role: "USER",
+        isActive: true,
       },
     }),
     prisma.user.upsert({
@@ -36,6 +38,7 @@ async function main() {
         email: "hassan@example.com",
         password: await bcrypt.hash("password123", 10),
         role: "USER",
+        isActive: true,
       },
     }),
     prisma.user.upsert({
@@ -46,6 +49,7 @@ async function main() {
         email: "aisha@example.com",
         password: await bcrypt.hash("password123", 10),
         role: "USER",
+        isActive: true,
       },
     }),
     prisma.user.upsert({
@@ -56,6 +60,7 @@ async function main() {
         email: "omar@example.com",
         password: await bcrypt.hash("password123", 10),
         role: "USER",
+        isActive: true,
       },
     }),
     prisma.user.upsert({
@@ -66,6 +71,7 @@ async function main() {
         email: "zara@example.com",
         password: await bcrypt.hash("password123", 10),
         role: "USER",
+        isActive: true,
       },
     }),
   ]);
