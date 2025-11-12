@@ -16,7 +16,7 @@ interface Contribution {
     user: {
         id: string
         name: string
-        email: string
+        email?: string
     }
     group?: {
         id: string

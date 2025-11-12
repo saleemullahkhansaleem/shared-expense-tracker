@@ -31,16 +31,18 @@ interface Contribution {
 interface GroupOption {
     id: string
     name: string
+    isAdmin: boolean
 }
 
 const statuses = ['All', 'PAID', 'PENDING']
 
 export function ContributionsList() {
     const { data: session } = useSession()
-    const isAdmin = (session?.user as any)?.role === 'ADMIN'
+    const currentUserId = (session?.user as any)?.id as string | undefined
 
     const [contributions, setContributions] = useState<Contribution[]>([])
     const [groups, setGroups] = useState<GroupOption[]>([])
+    const [adminGroupIds, setAdminGroupIds] = useState<string[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedMonth, setSelectedMonth] = useState('All')
@@ -49,7 +51,23 @@ export function ContributionsList() {
     const [editingContribution, setEditingContribution] = useState<Contribution | null>(null)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
+    const canManageContribution = useCallback(
+        (contribution: Contribution | null) => {
+            if (!contribution) return false
+            const groupId = contribution.group?.id
+            if (!groupId) return false
+            return adminGroupIds.includes(groupId)
+        },
+        [adminGroupIds]
+    )
+
     const fetchGroups = useCallback(async () => {
+        if (!currentUserId) {
+            setGroups([])
+            setAdminGroupIds([])
+            return
+        }
+
         try {
             const response = await fetch('/api/groups', {
                 credentials: 'include',
@@ -60,14 +78,26 @@ export function ContributionsList() {
             }
             const data = await response.json()
             const mapped: GroupOption[] = Array.isArray(data)
-                ? data.map((group: any) => ({ id: group.id, name: group.name }))
+                ? data.map((group: any) => {
+                      const isAdmin = group.members?.some((member: any) => {
+                          const memberUserId = member.userId ?? member.user?.id
+                          return memberUserId === currentUserId && member.role === 'ADMIN'
+                      })
+                      return {
+                          id: group.id,
+                          name: group.name,
+                          isAdmin: !!isAdmin,
+                      }
+                  })
                 : []
             setGroups(mapped)
+            setAdminGroupIds(mapped.filter((group) => group.isAdmin).map((group) => group.id))
         } catch (error) {
             console.error('Error fetching groups:', error)
             setGroups([])
+            setAdminGroupIds([])
         }
-    }, [])
+    }, [currentUserId])
 
     useEffect(() => {
         fetchGroups()
@@ -107,17 +137,26 @@ export function ContributionsList() {
     const monthOptions = ['All', ...uniqueMonths.sort().reverse()]
 
     const handleEditContribution = (contribution: Contribution) => {
+        if (!canManageContribution(contribution)) {
+            alert('Only group admins can edit contributions.')
+            return
+        }
         setEditingContribution(contribution)
         setIsEditModalOpen(true)
     }
 
-    const handleDeleteContribution = async (contributionId: string) => {
+    const handleDeleteContribution = async (contribution: Contribution) => {
+        if (!canManageContribution(contribution)) {
+            alert('Only group admins can delete contributions.')
+            return
+        }
+
         if (!confirm('Are you sure you want to delete this contribution?')) {
             return
         }
 
         try {
-            const response = await fetch(`/api/contributions/${contributionId}`, {
+            const response = await fetch(`/api/contributions/${contribution.id}`, {
                 method: 'DELETE',
             })
 
@@ -165,7 +204,7 @@ export function ContributionsList() {
                         </div>
                         <AddContributionButton
                             onSuccess={fetchContributions}
-                            disabled={!isAdmin}
+                            disabled={adminGroupIds.length === 0}
                         />
                     </div>
                 </CardHeader>
@@ -244,6 +283,7 @@ export function ContributionsList() {
                     <div className="space-y-3">
                         {filteredContributions.map((contribution) => {
                             const status = contribution.amount > 0 ? 'PAID' : 'PENDING'
+                            const canManage = canManageContribution(contribution)
                             return (
                                 <div
                                     key={contribution.id}
@@ -283,7 +323,7 @@ export function ContributionsList() {
                                                 {status === 'PAID' ? formatCurrency(contribution.amount) : 'Not paid'}
                                             </div>
                                         </div>
-                                        {isAdmin && (
+                                        {canManage && (
                                             <div className="flex items-center space-x-2">
                                                 <Button
                                                     variant="outline"
@@ -295,7 +335,7 @@ export function ContributionsList() {
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    onClick={() => handleDeleteContribution(contribution.id)}
+                                                    onClick={() => handleDeleteContribution(contribution)}
                                                     className="text-red-600 hover:text-red-700"
                                                 >
                                                     <TrashIcon className="h-4 w-4" />

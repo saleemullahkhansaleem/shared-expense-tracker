@@ -16,7 +16,9 @@ export async function PUT(
     }
 
     const actorId = (session.user as any)?.id as string | undefined
-    const actorRole = (session.user as any)?.role
+    if (!actorId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
 
     const { id } = params
     const body = await request.json()
@@ -30,20 +32,16 @@ export async function PUT(
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
-    let hasPermission = actorRole === 'ADMIN'
-
-    if (!hasPermission && actorId) {
-      const actorMembership = await prisma.groupMember.findFirst({
+    const actorMembership = await prisma.groupMember.findFirst({
         where: {
           groupId,
           userId: actorId,
           role: 'ADMIN',
         },
       })
-      hasPermission = !!actorMembership
-    }
+    const isGroupAdmin = !!actorMembership
 
-    if (!hasPermission) {
+    if (!isGroupAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -130,20 +128,16 @@ export async function DELETE(
       )
     }
 
-    let hasPermission = actorRole === 'ADMIN'
-
-    if (!hasPermission && actorId) {
-      const actorMembership = await prisma.groupMember.findFirst({
+    const actorMembership = await prisma.groupMember.findFirst({
         where: {
           groupId: contributionGroupId,
           userId: actorId,
           role: 'ADMIN',
         },
       })
-      hasPermission = !!actorMembership
-    }
+    const isGroupAdmin = !!actorMembership
 
-    if (!hasPermission) {
+    if (!isGroupAdmin) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 

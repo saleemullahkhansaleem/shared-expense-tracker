@@ -3,8 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatCurrency, formatDate } from '@/lib/utils'
-import { AddContributionButton } from '@/components/contributions/AddContributionButton'
+import { formatCurrency } from '@/lib/utils'
+import { GroupRecentContributionsCard } from '@/components/groups/GroupRecentContributionsCard'
 import { GroupRecentExpensesCard } from '@/components/groups/GroupRecentExpensesCard'
 
 export default async function GroupOverviewPage({
@@ -83,6 +83,28 @@ export default async function GroupOverviewPage({
         )
         .filter((member): member is { id: string; name: string } => member !== null)
 
+    const initialContributions = group.contributions.map((contribution) => ({
+        id: contribution.id,
+        amount: contribution.amount,
+        month: contribution.month,
+        createdAt:
+            contribution.createdAt instanceof Date
+                ? contribution.createdAt.toISOString()
+                : new Date(contribution.createdAt).toISOString(),
+        userId: contribution.userId,
+        user: contribution.user
+            ? {
+                  id: contribution.user.id,
+                  name: contribution.user.name,
+                  email: contribution.user.email ?? undefined,
+              }
+            : null,
+        group: {
+            id: group.id,
+            name: group.name,
+        },
+    }))
+
     const initialExpenses = group.expenses.map((expense) => ({
         id: expense.id,
         title: expense.title,
@@ -158,47 +180,13 @@ export default async function GroupOverviewPage({
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <CardTitle>Recent Contributions</CardTitle>
-                            {isGroupAdmin && (
-                                <AddContributionButton
-                                    groupId={group.id}
-                                    groupName={group.name}
-                                    members={groupMembersForModal}
-                                />
-                            )}
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {group.contributions.length === 0 && (
-                                <p className="text-sm text-gray-500">
-                                    No contributions recorded for this group yet.
-                                </p>
-                            )}
-                            {group.contributions.map((contribution) => (
-                                <div
-                                    key={contribution.id}
-                                    className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-4 py-3"
-                                >
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">
-                                            {contribution.user?.name ?? 'Unknown member'}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            {contribution.month} • {formatDate(new Date(contribution.createdAt))}
-                                        </p>
-                                    </div>
-                                    <p className="text-sm font-medium text-green-600">
-                                        +{formatCurrency(contribution.amount)}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                <GroupRecentContributionsCard
+                    groupId={group.id}
+                    groupName={group.name}
+                    initialContributions={initialContributions}
+                    members={groupMembersForModal}
+                    isGroupAdmin={isGroupAdmin}
+                />
 
                 <GroupRecentExpensesCard
                     groupId={group.id}
