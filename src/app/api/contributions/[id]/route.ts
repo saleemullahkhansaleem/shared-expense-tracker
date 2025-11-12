@@ -121,12 +121,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Contribution not found' }, { status: 404 })
     }
 
+    const contributionGroupId = existing.groupId
+
+    if (!contributionGroupId) {
+      return NextResponse.json(
+        { error: 'Contribution is not associated with a group' },
+        { status: 400 }
+      )
+    }
+
     let hasPermission = actorRole === 'ADMIN'
 
     if (!hasPermission && actorId) {
       const actorMembership = await prisma.groupMember.findFirst({
         where: {
-          groupId: existing.groupId,
+          groupId: contributionGroupId,
           userId: actorId,
           role: 'ADMIN',
         },

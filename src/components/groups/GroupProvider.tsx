@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 
@@ -26,22 +26,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     const { data: session } = useSession()
     const router = useRouter()
 
-    useEffect(() => {
-        if (session) {
-            // Check if user has a selected group in localStorage
-            const savedGroupId = localStorage.getItem('selectedGroupId')
-            if (savedGroupId) {
-                // Fetch group details
-                fetchGroupDetails(savedGroupId)
-            } else {
-                // Redirect to group selection
-                router.push('/dashboard/groups')
-            }
-        }
-        setIsLoading(false)
-    }, [session, router])
-
-    const fetchGroupDetails = async (groupId: string) => {
+    const fetchGroupDetails = useCallback(async (groupId: string) => {
         try {
             const response = await fetch(`/api/groups/${groupId}`)
             if (response.ok) {
@@ -57,7 +42,22 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
             localStorage.removeItem('selectedGroupId')
             router.push('/dashboard/groups')
         }
-    }
+    }, [router])
+
+    useEffect(() => {
+        if (session) {
+            // Check if user has a selected group in localStorage
+            const savedGroupId = localStorage.getItem('selectedGroupId')
+            if (savedGroupId) {
+                // Fetch group details
+                fetchGroupDetails(savedGroupId)
+            } else {
+                // Redirect to group selection
+                router.push('/dashboard/groups')
+            }
+        }
+        setIsLoading(false)
+    }, [session, router, fetchGroupDetails])
 
     const handleSetSelectedGroup = (group: Group | null) => {
         setSelectedGroup(group)
