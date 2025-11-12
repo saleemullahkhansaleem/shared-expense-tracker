@@ -18,8 +18,8 @@ interface Expense {
     user: {
         id: string
         name: string
-        email: string
-    }
+        email?: string
+    } | null
     group?: {
         id: string
         name: string
