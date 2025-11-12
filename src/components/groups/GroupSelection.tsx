@@ -126,6 +126,7 @@ export function GroupSelection() {
             }
 
             fetchGroups()
+            window.postMessage({ type: 'group:deleted', groupId: group.id }, window.location.origin)
         } catch (error: any) {
             console.error('Error deleting group:', error)
             alert(error?.message ?? 'Failed to delete group')
@@ -135,11 +136,13 @@ export function GroupSelection() {
     const handleGroupCreated = () => {
         setIsCreateModalOpen(false)
         fetchGroups()
+        window.postMessage({ type: 'group:created' }, window.location.origin)
     }
 
     const handleGroupJoined = () => {
         setIsJoinModalOpen(false)
         fetchGroups()
+        window.postMessage({ type: 'group:updated' }, window.location.origin)
     }
 
     if (loading) {

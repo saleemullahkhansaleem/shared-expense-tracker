@@ -73,6 +73,25 @@ export function DashboardNav() {
         }
 
         fetchGroups()
+
+        const handleGroupEvent = (event: MessageEvent) => {
+            if (!event.data || typeof event.data !== 'object') return
+            const { type } = event.data as { type?: string }
+            if (
+                type === 'group:created' ||
+                type === 'group:updated' ||
+                type === 'group:deleted' ||
+                type === 'groups:refresh'
+            ) {
+                fetchGroups()
+            }
+        }
+
+        window.addEventListener('message', handleGroupEvent)
+
+        return () => {
+            window.removeEventListener('message', handleGroupEvent)
+        }
     }, [])
 
     const activeGroupId = useMemo(() => {

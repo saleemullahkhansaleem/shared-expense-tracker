@@ -63,6 +63,7 @@ export function EditGroupModal({ isOpen, onClose, onSuccess, group }: EditGroupM
 
             onSuccess()
             onClose()
+            window.postMessage({ type: 'group:updated', groupId: group.id }, window.location.origin)
         } catch (err: any) {
             console.error('Error updating group:', err)
             setError(err?.message ?? 'Failed to update group')
