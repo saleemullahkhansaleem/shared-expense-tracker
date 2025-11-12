@@ -1,16 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { PlusIcon, UserGroupIcon, KeyIcon } from '@heroicons/react/24/outline'
+import {
+    PlusIcon,
+    UserGroupIcon,
+    KeyIcon,
+    PencilIcon,
+    TrashIcon,
+    EnvelopeIcon,
+} from '@heroicons/react/24/outline'
 import { CreateGroupModal } from './CreateGroupModal'
 import { JoinGroupModal } from './JoinGroupModal'
+import { EditGroupModal } from './EditGroupModal'
 
 interface Group {
+    canManage: boolean
+    canDelete: boolean
     id: string
     name: string
     description: string | null
@@ -45,29 +56,80 @@ export function GroupSelection() {
     const [loading, setLoading] = useState(true)
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [isJoinModalOpen, setIsJoinModalOpen] = useState(false)
+    const [editingGroup, setEditingGroup] = useState<Group | null>(null)
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-    const fetchGroups = async () => {
+    const currentUserId = (session?.user as any)?.id as string | undefined
+
+    const fetchGroups = useCallback(async () => {
         try {
             const response = await fetch('/api/groups')
-            if (response.ok) {
-                const data = await response.json()
-                setGroups(data)
+            if (!response.ok) {
+                throw new Error(`Failed to load groups (${response.status})`)
+            }
+
+            const data: Group[] = await response.json()
+            if (Array.isArray(data)) {
+                const mapped = data.map((group) => {
+                    const isCreator = currentUserId ? group.creator?.id === currentUserId : false
+                    const isGroupAdmin = currentUserId
+                        ? group.members?.some(
+                              (member) =>
+                                  member.user?.id === currentUserId && member.role === 'ADMIN'
+                          ) ?? false
+                        : false
+
+                    return {
+                        ...group,
+                        canManage: isCreator || isGroupAdmin,
+                        canDelete: isCreator,
+                    }
+                })
+                setGroups(mapped)
+            } else {
+                setGroups([])
             }
         } catch (error) {
             console.error('Error fetching groups:', error)
+            setGroups([])
         } finally {
             setLoading(false)
         }
-    }
+    }, [currentUserId])
 
     useEffect(() => {
-        fetchGroups()
-    }, [])
+        if (session !== undefined) {
+            fetchGroups()
+        }
+    }, [fetchGroups, session])
 
-    const handleGroupSelect = (groupId: string) => {
-        // Store selected group in localStorage or session
-        localStorage.setItem('selectedGroupId', groupId)
-        router.push('/dashboard')
+    const handleEditGroup = (group: Group) => {
+        setEditingGroup(group)
+        setIsEditModalOpen(true)
+    }
+
+    const handleDeleteGroup = async (group: Group) => {
+        const confirmed = window.confirm(
+            `Are you sure you want to delete "${group.name}"? This action cannot be undone.`
+        )
+
+        if (!confirmed) return
+
+        try {
+            const response = await fetch(`/api/groups/${group.id}`, {
+                method: 'DELETE',
+            })
+
+            if (!response.ok) {
+                const data = await response.json()
+                throw new Error(data.error ?? 'Failed to delete group')
+            }
+
+            fetchGroups()
+        } catch (error: any) {
+            console.error('Error deleting group:', error)
+            alert(error?.message ?? 'Failed to delete group')
+        }
     }
 
     const handleGroupCreated = () => {
@@ -115,17 +177,35 @@ export function GroupSelection() {
                     <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Groups</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {groups.map((group) => (
-                            <Card key={group.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                            <Card key={group.id} className="hover:shadow-lg transition-shadow">
                                 <CardHeader>
-                                    <CardTitle className="flex items-center space-x-2">
-                                        <UserGroupIcon className="h-5 w-5 text-blue-600" />
-                                        <span>{group.name}</span>
+                                    <CardTitle>
+                                        <Link
+                                            href={`/dashboard/groups/${group.id}/overview`}
+                                            onClick={() => localStorage.setItem('selectedGroupId', group.id)}
+                                            className="flex items-center space-x-2 text-blue-700 hover:text-blue-800"
+                                        >
+                                            <UserGroupIcon className="h-5 w-5" />
+                                            <span className="font-semibold">{group.name}</span>
+                                        </Link>
                                     </CardTitle>
                                     {group.description && (
                                         <CardDescription>{group.description}</CardDescription>
                                     )}
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="space-y-3">
+                                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Created By
+                                        </p>
+                                        <p className="text-sm font-medium text-gray-900">
+                                            {group.creator?.name ?? 'Unknown'}
+                                        </p>
+                                        <p className="flex items-center text-xs text-gray-500">
+                                            <EnvelopeIcon className="mr-1 h-4 w-4" />
+                                            {group.creator?.email ?? 'No email provided'}
+                                        </p>
+                                    </div>
                                     <div className="space-y-3">
                                         <div className="flex justify-between text-sm">
                                             <span className="text-gray-600">Members:</span>
@@ -145,13 +225,28 @@ export function GroupSelection() {
                                                 <span className="font-medium">${group.monthlyAmount}</span>
                                             </div>
                                         )}
-                                        <div className="pt-2">
-                                            <Button
-                                                onClick={() => handleGroupSelect(group.id)}
-                                                className="w-full"
-                                            >
-                                                Enter Group
-                                            </Button>
+                                        <div className="flex items-center gap-2 pt-2">
+                                            {group.canManage && (
+                                                <>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="icon"
+                                                        onClick={() => handleEditGroup(group)}
+                                                    >
+                                                        <PencilIcon className="h-4 w-4" />
+                                                    </Button>
+                                                    {group.canDelete && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="icon"
+                                                            className="text-red-600 hover:text-red-700"
+                                                            onClick={() => handleDeleteGroup(group)}
+                                                        >
+                                                            <TrashIcon className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </CardContent>
@@ -179,6 +274,24 @@ export function GroupSelection() {
                 isOpen={isJoinModalOpen}
                 onClose={() => setIsJoinModalOpen(false)}
                 onSuccess={handleGroupJoined}
+            />
+            <EditGroupModal
+                isOpen={isEditModalOpen}
+                onClose={() => {
+                    setIsEditModalOpen(false)
+                    setEditingGroup(null)
+                }}
+                onSuccess={fetchGroups}
+                group={
+                    editingGroup
+                        ? {
+                              id: editingGroup.id,
+                              name: editingGroup.name,
+                              description: editingGroup.description,
+                              monthlyAmount: editingGroup.monthlyAmount,
+                          }
+                        : null
+                }
             />
         </div>
     )
