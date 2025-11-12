@@ -41,12 +41,21 @@ export async function PUT(
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
     }
 
+    const expenseGroupId = expense.groupId
+
+    if (!expenseGroupId) {
+      return NextResponse.json(
+        { error: 'Expense is not associated with a group' },
+        { status: 400 }
+      )
+    }
+
     let hasPermission = expense.userId === actorId
 
     if (!hasPermission && actorId) {
       const actorMembership = await prisma.groupMember.findFirst({
         where: {
-          groupId: expense.groupId,
+          groupId: expenseGroupId,
           userId: actorId,
           role: 'ADMIN',
         },
@@ -135,12 +144,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
     }
 
+    const expenseGroupId = expense.groupId
+
+    if (!expenseGroupId) {
+      return NextResponse.json(
+        { error: 'Expense is not associated with a group' },
+        { status: 400 }
+      )
+    }
+
     let hasPermission = expense.userId === actorId
 
     if (!hasPermission && actorId) {
       const actorMembership = await prisma.groupMember.findFirst({
         where: {
-          groupId: expense.groupId,
+          groupId: expenseGroupId,
           userId: actorId,
           role: 'ADMIN',
         },
