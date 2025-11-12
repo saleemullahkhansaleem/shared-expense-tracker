@@ -11,6 +11,7 @@ import {
     UserGroupIcon,
     ArrowPathIcon,
     ChevronDownIcon,
+    BanknotesIcon,
 } from '@heroicons/react/24/outline'
 
 type DashboardNavLink = {
@@ -108,6 +109,7 @@ export function DashboardNav() {
     const generalLinks: DashboardNavLink[] = useMemo(() => {
         const base: DashboardNavLink[] = [
             { name: 'Dashboard', href: '/dashboard', icon: Squares2X2Icon },
+            { name: 'Expenses', href: '/dashboard/expenses', icon: BanknotesIcon },
             { name: 'Groups', href: '/dashboard/groups', icon: UserGroupIcon },
         ]
 

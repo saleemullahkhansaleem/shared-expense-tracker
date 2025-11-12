@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
@@ -8,6 +10,13 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const actorId = (session.user as any)?.id as string | undefined
+
     const { id } = params
     const body = await request.json()
     const { title, category, amount, date, paymentSource, userId, groupId } = body
@@ -20,6 +29,35 @@ export async function PUT(
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
+    const expense = await prisma.expense.findUnique({
+      where: { id },
+      select: {
+        userId: true,
+        groupId: true,
+      },
+    })
+
+    if (!expense) {
+      return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
+    }
+
+    let hasPermission = expense.userId === actorId
+
+    if (!hasPermission && actorId) {
+      const actorMembership = await prisma.groupMember.findFirst({
+        where: {
+          groupId: expense.groupId,
+          userId: actorId,
+          role: 'ADMIN',
+        },
+      })
+      hasPermission = !!actorMembership
+    }
+
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 })
+    }
+
     const membership = await prisma.groupMember.findFirst({
       where: {
         groupId,
@@ -28,15 +66,12 @@ export async function PUT(
     })
 
     if (!membership) {
-      return NextResponse.json(
-        { error: 'User is not a member of this group' },
-        { status: 403 }
-      )
+      return NextResponse.json({ error: 'User is not a member of this group' }, { status: 403 })
     }
 
     const parsedAmount = typeof amount === 'number' ? amount : parseFloat(amount)
 
-    const expense = await prisma.expense.update({
+    const updatedExpense = await prisma.expense.update({
       where: { id },
       data: {
         title,
@@ -64,7 +99,7 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(expense)
+    return NextResponse.json(updatedExpense)
   } catch (error) {
     console.error('Error updating expense:', error)
     return NextResponse.json(
@@ -79,7 +114,43 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const actorId = (session.user as any)?.id as string | undefined
+
     const { id } = params
+
+    const expense = await prisma.expense.findUnique({
+      where: { id },
+      select: {
+        userId: true,
+        groupId: true,
+      },
+    })
+
+    if (!expense) {
+      return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
+    }
+
+    let hasPermission = expense.userId === actorId
+
+    if (!hasPermission && actorId) {
+      const actorMembership = await prisma.groupMember.findFirst({
+        where: {
+          groupId: expense.groupId,
+          userId: actorId,
+          role: 'ADMIN',
+        },
+      })
+      hasPermission = !!actorMembership
+    }
+
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 })
+    }
 
     await prisma.expense.delete({
       where: { id },

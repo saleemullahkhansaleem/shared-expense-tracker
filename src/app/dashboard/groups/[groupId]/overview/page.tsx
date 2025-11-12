@@ -4,8 +4,8 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { AddExpenseButton } from '@/components/expenses/AddExpenseButton'
 import { AddContributionButton } from '@/components/contributions/AddContributionButton'
+import { GroupRecentExpensesCard } from '@/components/groups/GroupRecentExpensesCard'
 
 export default async function GroupOverviewPage({
     params,
@@ -26,14 +26,14 @@ export default async function GroupOverviewPage({
             members: {
                 include: {
                     user: {
-                        select: { id: true, name: true },
+                        select: { id: true, name: true, email: true },
                     },
                 },
             },
             contributions: {
                 include: {
                     user: {
-                        select: { id: true, name: true },
+                        select: { id: true, name: true, email: true },
                     },
                 },
                 orderBy: { createdAt: 'desc' },
@@ -42,7 +42,7 @@ export default async function GroupOverviewPage({
             expenses: {
                 include: {
                     user: {
-                        select: { id: true, name: true },
+                        select: { id: true, name: true, email: true },
                     },
                 },
                 orderBy: { date: 'desc' },
@@ -82,6 +82,23 @@ export default async function GroupOverviewPage({
                 : null
         )
         .filter((member): member is { id: string; name: string } => member !== null)
+
+    const initialExpenses = group.expenses.map((expense) => ({
+        id: expense.id,
+        title: expense.title,
+        category: expense.category,
+        amount: expense.amount,
+        date: expense.date instanceof Date ? expense.date.toISOString() : new Date(expense.date).toISOString(),
+        paymentSource: expense.paymentSource,
+        userId: expense.userId,
+        user: expense.user
+            ? {
+                  id: expense.user.id,
+                  name: expense.user.name,
+                  email: expense.user.email ?? undefined,
+              }
+            : null,
+    }))
 
     return (
         <div className="space-y-6">
@@ -183,45 +200,14 @@ export default async function GroupOverviewPage({
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <CardTitle>Recent Expenses</CardTitle>
-                            <AddExpenseButton
-                                groupId={group.id}
-                                groupName={group.name}
-                                members={groupMembersForModal}
-                            />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {group.expenses.length === 0 && (
-                                <p className="text-sm text-gray-500">
-                                    No expenses recorded for this group yet.
-                                </p>
-                            )}
-                            {group.expenses.map((expense) => (
-                                <div
-                                    key={expense.id}
-                                    className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-4 py-3"
-                                >
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">
-                                            {expense.title}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            {expense.user?.name ?? 'Unknown'} • {formatDate(new Date(expense.date))}
-                                        </p>
-                                    </div>
-                                    <p className="text-sm font-medium text-red-600">
-                                        -{formatCurrency(expense.amount)}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                <GroupRecentExpensesCard
+                    groupId={group.id}
+                    groupName={group.name}
+                    initialExpenses={initialExpenses}
+                    members={groupMembersForModal}
+                    currentUserId={userId}
+                    isGroupAdmin={isGroupAdmin}
+                />
             </div>
         </div>
     )

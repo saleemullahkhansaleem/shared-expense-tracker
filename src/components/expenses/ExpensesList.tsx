@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -39,8 +40,13 @@ const categories = ['All', 'Milk', 'Chicken', 'Vegetables', 'Other']
 const paymentSources = ['All', 'COLLECTED', 'POCKET']
 
 export function ExpensesList() {
+    const { data: session } = useSession()
+    const currentUserId = (session?.user as any)?.id as string | undefined
+    const isGlobalAdmin = (session?.user as any)?.role === 'ADMIN'
+
     const [expenses, setExpenses] = useState<Expense[]>([])
     const [groups, setGroups] = useState<GroupOption[]>([])
+    const [groupAdminMap, setGroupAdminMap] = useState<Record<string, boolean>>({})
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedCategory, setSelectedCategory] = useState('All')
@@ -59,15 +65,25 @@ export function ExpensesList() {
                 throw new Error('Failed to load groups')
             }
             const data = await response.json()
+            const adminMap: Record<string, boolean> = {}
             const mapped: GroupOption[] = Array.isArray(data)
-                ? data.map((group: any) => ({ id: group.id, name: group.name }))
+                ? data.map((group: any) => {
+                      const isAdminForGroup = group.members?.some(
+                          (member: any) =>
+                              member.userId === currentUserId && member.role === 'ADMIN'
+                      )
+                      adminMap[group.id] = !!isAdminForGroup
+                      return { id: group.id, name: group.name }
+                  })
                 : []
             setGroups(mapped)
+            setGroupAdminMap(adminMap)
         } catch (error) {
             console.error('Error fetching groups:', error)
             setGroups([])
+            setGroupAdminMap({})
         }
-    }, [])
+    }, [currentUserId])
 
     useEffect(() => {
         fetchGroups()
@@ -103,25 +119,29 @@ export function ExpensesList() {
         setSelectedGroup('All')
     }, [groups, selectedGroup])
 
+    const uniqueMonths = Array.from(new Set(expenses.map((expense) => expense.date.slice(0, 7))))
+    const monthOptions = ['All', ...uniqueMonths.sort().reverse()]
+
     const handleEditExpense = (expense: Expense) => {
         setEditingExpense(expense)
         setIsEditModalOpen(true)
     }
 
-    const handleDeleteExpense = async (expenseId: string) => {
+    const handleDeleteExpense = async (expense: Expense) => {
         if (!confirm('Are you sure you want to delete this expense?')) {
             return
         }
 
         try {
-            const response = await fetch(`/api/expenses/${expenseId}`, {
+            const response = await fetch(`/api/expenses/${expense.id}`, {
                 method: 'DELETE',
             })
 
             if (response.ok) {
                 fetchExpenses() // Refresh the list
             } else {
-                alert('Failed to delete expense')
+                const errorData = await response.json()
+                alert(errorData.error || 'Failed to delete expense')
             }
         } catch (error) {
             console.error('Error deleting expense:', error)
@@ -135,13 +155,19 @@ export function ExpensesList() {
             expense.user.name.toLowerCase().includes(searchTerm.toLowerCase())
         const matchesCategory = selectedCategory === 'All' || expense.category === selectedCategory
         const matchesPaymentSource = selectedPaymentSource === 'All' || expense.paymentSource === selectedPaymentSource
-        const matchesGroup =
-            selectedGroup === 'All' || expense.group?.id === selectedGroup
+        const matchesGroup = selectedGroup === 'All' || expense.group?.id === selectedGroup
 
         return matchesSearch && matchesCategory && matchesPaymentSource && matchesGroup
     })
 
     const totalAmount = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+
+    const canManageExpense = (expense: Expense) => {
+        if (expense.userId === currentUserId) return true
+        if (isGlobalAdmin) return true
+        if (expense.group?.id && groupAdminMap[expense.group.id]) return true
+        return false
+    }
 
     if (loading) {
         return <ExpensesListSkeleton />
@@ -224,63 +250,78 @@ export function ExpensesList() {
 
                     {/* Expenses List */}
                     <div className="space-y-3">
-                        {filteredExpenses.map((expense) => (
-                            <div
-                                key={expense.id}
-                                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                            >
-                                <div className="flex-1">
-                                    <div className="flex items-center space-x-3">
-                                        <h4 className="font-medium text-gray-900">{expense.title}</h4>
-                                        <span
-                                            className={`px-2 py-1 text-xs rounded-full ${
-                                                expense.paymentSource === 'COLLECTED'
-                                                    ? 'bg-blue-100 text-blue-800'
-                                                    : 'bg-green-100 text-green-800'
-                                            }`}
-                                        >
-                                            {expense.paymentSource === 'COLLECTED' ? 'Collected' : 'Pocket'}
-                                        </span>
-                                        {expense.group && (
-                                            <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
-                                                {expense.group.name}
+                        {filteredExpenses.map((expense) => {
+                            const manageable = canManageExpense(expense)
+                            return (
+                                <div
+                                    key={expense.id}
+                                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                >
+                                    <div className="flex-1">
+                                        <div className="flex items-center space-x-3">
+                                            <h4 className="font-medium text-gray-900">{expense.title}</h4>
+                                            <span
+                                                className={`px-2 py-1 text-xs rounded-full ${
+                                                    expense.paymentSource === 'COLLECTED'
+                                                        ? 'bg-blue-100 text-blue-800'
+                                                        : 'bg-green-100 text-green-800'
+                                                }`}
+                                            >
+                                                {expense.paymentSource === 'COLLECTED' ? 'Collected' : 'Pocket'}
                                             </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                                        <span className="font-medium">{expense.category}</span>
-                                        <span>•</span>
-                                        <span>{expense.user.name}</span>
-                                        <span>•</span>
-                                        <span>{formatDate(new Date(expense.date))}</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center space-x-3">
-                                    <div className="text-right">
-                                        <div className="font-semibold text-gray-900">
-                                            {formatCurrency(expense.amount)}
+                                            {expense.group && (
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                                                    {expense.group.name}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
+                                            <span className="font-medium">{expense.category}</span>
+                                            <span>•</span>
+                                            <span>{expense.user.name}</span>
+                                            <span>•</span>
+                                            <span>{formatDate(new Date(expense.date))}</span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center space-x-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleEditExpense(expense)}
-                                        >
-                                            <PencilIcon className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleDeleteExpense(expense.id)}
-                                            className="text-red-600 hover:text-red-700"
-                                        >
-                                            <TrashIcon className="h-4 w-4" />
-                                        </Button>
+                                    <div className="flex items-center space-x-3">
+                                        <div className="text-right">
+                                            <div className="font-semibold text-gray-900">
+                                                {formatCurrency(expense.amount)}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleEditExpense(expense)}
+                                                disabled={!manageable}
+                                                title={
+                                                    manageable
+                                                        ? 'Edit expense'
+                                                        : 'Only the payer or group admins can edit this expense'
+                                                }
+                                            >
+                                                <PencilIcon className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleDeleteExpense(expense)}
+                                                className="text-red-600 hover:text-red-700"
+                                                disabled={!manageable}
+                                                title={
+                                                    manageable
+                                                        ? 'Delete expense'
+                                                        : 'Only the payer or group admins can delete this expense'
+                                                }
+                                            >
+                                                <TrashIcon className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
 
                     {filteredExpenses.length === 0 && (
