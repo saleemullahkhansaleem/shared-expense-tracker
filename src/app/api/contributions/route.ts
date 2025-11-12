@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
@@ -9,6 +11,7 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get('month')
     const status = searchParams.get('status')
     const search = searchParams.get('search')
+    const groupId = searchParams.get('groupId')
 
     const where: any = {}
 
@@ -16,9 +19,13 @@ export async function GET(request: NextRequest) {
       where.month = month
     }
 
+    if (groupId) {
+      where.groupId = groupId
+    }
+
     if (search) {
       where.user = {
-        name: { contains: search, mode: 'insensitive' }
+        name: { contains: search, mode: 'insensitive' },
       }
     }
 
@@ -29,22 +36,27 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
+            email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     })
 
-    // Filter by status on the application level since we don't have a status field
     let filteredContributions = contributions
     if (status && status !== 'All') {
       if (status === 'PAID') {
-        filteredContributions = contributions.filter(c => c.amount > 0)
+        filteredContributions = contributions.filter((c) => c.amount > 0)
       } else if (status === 'PENDING') {
-        filteredContributions = contributions.filter(c => c.amount === 0)
+        filteredContributions = contributions.filter((c) => c.amount === 0)
       }
     }
 
@@ -53,31 +65,84 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching contributions:', error)
     return NextResponse.json(
       { error: 'Failed to fetch contributions' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const actorId = (session.user as any)?.id as string | undefined
+    const actorRole = (session.user as any)?.role
+
     const body = await request.json()
-    const { userId, amount, month } = body
+    const { userId, amount, month, groupId } = body
+
+    if (!groupId) {
+      return NextResponse.json({ error: 'groupId is required' }, { status: 400 })
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    }
+
+    let hasPermission = actorRole === 'ADMIN'
+
+    if (!hasPermission && actorId) {
+      const actorMembership = await prisma.groupMember.findFirst({
+        where: {
+          groupId,
+          userId: actorId,
+          role: 'ADMIN',
+        },
+      })
+      hasPermission = !!actorMembership
+    }
+
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId,
+        userId,
+      },
+    })
+
+    if (!membership) {
+      return NextResponse.json({ error: 'User is not a member of this group' }, { status: 400 })
+    }
+
+    const parsedAmount = typeof amount === 'number' ? amount : parseFloat(amount)
 
     const contribution = await prisma.contribution.create({
       data: {
         userId,
-        amount: parseFloat(amount),
-        month
+        amount: parsedAmount,
+        month,
+        groupId,
       },
       include: {
         user: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     })
 
     return NextResponse.json(contribution, { status: 201 })
@@ -85,7 +150,7 @@ export async function POST(request: NextRequest) {
     console.error('Error creating contribution:', error)
     return NextResponse.json(
       { error: 'Failed to create contribution' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { AddExpenseButton } from '@/components/expenses/AddExpenseButton'
+import { AddContributionButton } from '@/components/contributions/AddContributionButton'
 
 export default async function GroupOverviewPage({
     params,
@@ -64,11 +66,26 @@ export default async function GroupOverviewPage({
     )
 
     const totalExpenses = group.expenses.reduce((sum, expense) => sum + expense.amount, 0)
+    const collectedExpenses = group.expenses
+        .filter((expense) => expense.paymentSource === 'COLLECTED')
+        .reduce((sum, expense) => sum + expense.amount, 0)
+    const collectedBalance = totalContributions - collectedExpenses
     const memberCount = group.members.length
+    const isGroupAdmin = membership.role === 'ADMIN'
+    const groupMembersForModal = group.members
+        .map((member) =>
+            member.user
+                ? {
+                      id: member.user.id,
+                      name: member.user.name,
+                  }
+                : null
+        )
+        .filter((member): member is { id: string; name: string } => member !== null)
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
                 <Card>
                     <CardHeader>
                         <CardTitle>Total Contributions</CardTitle>
@@ -99,6 +116,21 @@ export default async function GroupOverviewPage({
 
                 <Card>
                     <CardHeader>
+                        <CardTitle>Collected Balance</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className={`text-2xl font-semibold ${collectedBalance >= 0 ? 'text-indigo-600' : 'text-orange-600'}`}>
+                            {formatCurrency(collectedBalance)}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                            Net of {formatCurrency(totalContributions)} collected minus
+                            {formatCurrency(collectedExpenses)} expenses from collection
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
                         <CardTitle>Members</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -111,7 +143,16 @@ export default async function GroupOverviewPage({
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Recent Contributions</CardTitle>
+                        <div className="flex items-center justify-between">
+                            <CardTitle>Recent Contributions</CardTitle>
+                            {isGroupAdmin && (
+                                <AddContributionButton
+                                    groupId={group.id}
+                                    groupName={group.name}
+                                    members={groupMembersForModal}
+                                />
+                            )}
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
@@ -127,13 +168,15 @@ export default async function GroupOverviewPage({
                                 >
                                     <div>
                                         <p className="text-sm font-medium text-gray-900">
-                                            {formatCurrency(contribution.amount)}
+                                            {contribution.user?.name ?? 'Unknown member'}
                                         </p>
                                         <p className="text-xs text-gray-500">
-                                            {contribution.user?.name ?? 'Unknown'} •{' '}
-                                            {formatDate(new Date(contribution.createdAt))}
+                                            {contribution.month} • {formatDate(new Date(contribution.createdAt))}
                                         </p>
                                     </div>
+                                    <p className="text-sm font-medium text-green-600">
+                                        +{formatCurrency(contribution.amount)}
+                                    </p>
                                 </div>
                             ))}
                         </div>
@@ -142,7 +185,14 @@ export default async function GroupOverviewPage({
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Recent Expenses</CardTitle>
+                        <div className="flex items-center justify-between">
+                            <CardTitle>Recent Expenses</CardTitle>
+                            <AddExpenseButton
+                                groupId={group.id}
+                                groupName={group.name}
+                                members={groupMembersForModal}
+                            />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
@@ -161,8 +211,7 @@ export default async function GroupOverviewPage({
                                             {expense.title}
                                         </p>
                                         <p className="text-xs text-gray-500">
-                                            {expense.user?.name ?? 'Unknown'} •{' '}
-                                            {formatDate(new Date(expense.date))}
+                                            {expense.user?.name ?? 'Unknown'} • {formatDate(new Date(expense.date))}
                                         </p>
                                     </div>
                                     <p className="text-sm font-medium text-red-600">

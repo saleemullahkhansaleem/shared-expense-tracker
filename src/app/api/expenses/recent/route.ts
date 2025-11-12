@@ -15,13 +15,19 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
+            email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       orderBy: {
-        date: 'desc'
-      }
+        date: 'desc',
+      },
     })
 
     return NextResponse.json(recentExpenses)

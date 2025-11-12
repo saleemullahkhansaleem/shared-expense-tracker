@@ -24,6 +24,15 @@ interface Expense {
         name: string
         email: string
     }
+    group?: {
+        id: string
+        name: string
+    }
+}
+
+interface GroupOption {
+    id: string
+    name: string
 }
 
 const categories = ['All', 'Milk', 'Chicken', 'Vegetables', 'Other']
@@ -31,18 +40,45 @@ const paymentSources = ['All', 'COLLECTED', 'POCKET']
 
 export function ExpensesList() {
     const [expenses, setExpenses] = useState<Expense[]>([])
+    const [groups, setGroups] = useState<GroupOption[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedCategory, setSelectedCategory] = useState('All')
     const [selectedPaymentSource, setSelectedPaymentSource] = useState('All')
+    const [selectedGroup, setSelectedGroup] = useState('All')
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+
+    const fetchGroups = useCallback(async () => {
+        try {
+            const response = await fetch('/api/groups', {
+                credentials: 'include',
+                cache: 'no-store',
+            })
+            if (!response.ok) {
+                throw new Error('Failed to load groups')
+            }
+            const data = await response.json()
+            const mapped: GroupOption[] = Array.isArray(data)
+                ? data.map((group: any) => ({ id: group.id, name: group.name }))
+                : []
+            setGroups(mapped)
+        } catch (error) {
+            console.error('Error fetching groups:', error)
+            setGroups([])
+        }
+    }, [])
+
+    useEffect(() => {
+        fetchGroups()
+    }, [fetchGroups])
 
     const fetchExpenses = useCallback(async () => {
         try {
             const params = new URLSearchParams()
             if (selectedCategory !== 'All') params.append('category', selectedCategory)
             if (selectedPaymentSource !== 'All') params.append('paymentSource', selectedPaymentSource)
+            if (selectedGroup !== 'All') params.append('groupId', selectedGroup)
             if (searchTerm) params.append('search', searchTerm)
 
             const response = await fetch(`/api/expenses?${params}`)
@@ -55,11 +91,17 @@ export function ExpensesList() {
         } finally {
             setLoading(false)
         }
-    }, [selectedCategory, selectedPaymentSource, searchTerm])
+    }, [selectedCategory, selectedPaymentSource, selectedGroup, searchTerm])
 
     useEffect(() => {
         fetchExpenses()
     }, [fetchExpenses])
+
+    useEffect(() => {
+        if (selectedGroup === 'All') return
+        if (groups.some((group) => group.id === selectedGroup)) return
+        setSelectedGroup('All')
+    }, [groups, selectedGroup])
 
     const handleEditExpense = (expense: Expense) => {
         setEditingExpense(expense)
@@ -73,7 +115,7 @@ export function ExpensesList() {
 
         try {
             const response = await fetch(`/api/expenses/${expenseId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
             })
 
             if (response.ok) {
@@ -87,13 +129,16 @@ export function ExpensesList() {
         }
     }
 
-    const filteredExpenses = expenses.filter(expense => {
-        const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const filteredExpenses = expenses.filter((expense) => {
+        const matchesSearch =
+            expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             expense.user.name.toLowerCase().includes(searchTerm.toLowerCase())
         const matchesCategory = selectedCategory === 'All' || expense.category === selectedCategory
         const matchesPaymentSource = selectedPaymentSource === 'All' || expense.paymentSource === selectedPaymentSource
+        const matchesGroup =
+            selectedGroup === 'All' || expense.group?.id === selectedGroup
 
-        return matchesSearch && matchesCategory && matchesPaymentSource
+        return matchesSearch && matchesCategory && matchesPaymentSource && matchesGroup
     })
 
     const totalAmount = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0)
@@ -116,7 +161,7 @@ export function ExpensesList() {
                 </CardHeader>
                 <CardContent>
                     {/* Filters */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                         <Input
                             placeholder="Search expenses..."
                             value={searchTerm}
@@ -141,8 +186,24 @@ export function ExpensesList() {
                             <SelectContent>
                                 {paymentSources.map((source) => (
                                     <SelectItem key={source} value={source}>
-                                        {source === 'COLLECTED' ? 'From Collected Amount' :
-                                            source === 'POCKET' ? 'From Own Pocket' : source}
+                                        {source === 'COLLECTED'
+                                            ? 'From Collected Amount'
+                                            : source === 'POCKET'
+                                            ? 'From Own Pocket'
+                                            : source}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select group" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="All">All Groups</SelectItem>
+                                {groups.map((group) => (
+                                    <SelectItem key={group.id} value={group.id}>
+                                        {group.name}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -164,16 +225,27 @@ export function ExpensesList() {
                     {/* Expenses List */}
                     <div className="space-y-3">
                         {filteredExpenses.map((expense) => (
-                            <div key={expense.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                            <div
+                                key={expense.id}
+                                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
                                 <div className="flex-1">
                                     <div className="flex items-center space-x-3">
                                         <h4 className="font-medium text-gray-900">{expense.title}</h4>
-                                        <span className={`px-2 py-1 text-xs rounded-full ${expense.paymentSource === 'COLLECTED'
-                                            ? 'bg-blue-100 text-blue-800'
-                                            : 'bg-green-100 text-green-800'
-                                            }`}>
+                                        <span
+                                            className={`px-2 py-1 text-xs rounded-full ${
+                                                expense.paymentSource === 'COLLECTED'
+                                                    ? 'bg-blue-100 text-blue-800'
+                                                    : 'bg-green-100 text-green-800'
+                                            }`}
+                                        >
                                             {expense.paymentSource === 'COLLECTED' ? 'Collected' : 'Pocket'}
                                         </span>
+                                        {expense.group && (
+                                            <span className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                                                {expense.group.name}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                                         <span className="font-medium">{expense.category}</span>

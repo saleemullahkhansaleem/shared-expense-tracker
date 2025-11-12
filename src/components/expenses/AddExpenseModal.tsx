@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -10,58 +11,158 @@ interface AddExpenseModalProps {
     isOpen: boolean
     onClose: () => void
     onSuccess?: () => void
+    groupId?: string
+    groupName?: string
+    members?: Array<{ id: string; name: string }>
 }
 
-interface User {
+interface GroupOption {
     id: string
     name: string
-    email: string
-    role: string
+    members: Array<{ id: string; name: string }>
 }
 
 const categories = ['Milk', 'Chicken', 'Vegetables', 'Other']
 const paymentSources = [
     { value: 'COLLECTED', label: 'From Collected Amount' },
-    { value: 'POCKET', label: 'From Own Pocket' }
+    { value: 'POCKET', label: 'From Own Pocket' },
 ]
 
-export function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpenseModalProps) {
-    const [users, setUsers] = useState<User[]>([])
-    const [formData, setFormData] = useState({
-        title: '',
-        category: '',
-        amount: '',
-        date: new Date().toISOString().split('T')[0],
-        paymentSource: '',
-        userId: ''
-    })
+const today = () => new Date().toISOString().split('T')[0]
+
+const createDefaultFormState = (groupId = '', userId = '') => ({
+    groupId,
+    userId,
+    title: '',
+    category: '',
+    amount: '',
+    date: today(),
+    paymentSource: 'COLLECTED' as 'COLLECTED' | 'POCKET',
+})
+
+export function AddExpenseModal({ isOpen, onClose, onSuccess, groupId, groupName, members }: AddExpenseModalProps) {
+    const router = useRouter()
+    const [groups, setGroups] = useState<GroupOption[]>([])
+    const [formData, setFormData] = useState(() => createDefaultFormState())
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
 
-    useEffect(() => {
-        if (isOpen) {
-            fetchUsers()
-        }
-    }, [isOpen])
+    const initialiseGroups = useCallback(async () => {
+        if (!isOpen) return
+        setError('')
 
-    const fetchUsers = async () => {
         try {
-            const response = await fetch('/api/users')
-            if (response.ok) {
-                const usersData = await response.json()
-                setUsers(usersData)
+            if (groupId && members && members.length > 0) {
+                const options: GroupOption[] = [
+                    {
+                        id: groupId,
+                        name: groupName ?? 'Selected Group',
+                        members,
+                    },
+                ]
+                setGroups(options)
+                const defaultUserId = members[0]?.id ?? ''
+                setFormData(createDefaultFormState(groupId, defaultUserId))
+                return
             }
-        } catch (error) {
-            console.error('Error fetching users:', error)
+
+            const response = await fetch('/api/groups', {
+                credentials: 'include',
+                cache: 'no-store',
+            })
+
+            if (!response.ok) {
+                throw new Error(`Failed to load groups (${response.status})`)
+            }
+
+            const data = await response.json()
+            const mapped: GroupOption[] = Array.isArray(data)
+                ? data.map((group: any) => ({
+                    id: group.id,
+                    name: group.name,
+                    members:
+                        group.members?.map((member: any) => ({
+                            id: member.user?.id ?? member.id,
+                            name: member.user?.name ?? 'Unknown member',
+                        })) ?? [],
+                }))
+                : []
+
+            setGroups(mapped)
+
+            const defaultGroupId = mapped[0]?.id ?? ''
+            const defaultUserId = mapped[0]?.members[0]?.id ?? ''
+            setFormData(createDefaultFormState(defaultGroupId, defaultUserId))
+        } catch (err) {
+            console.error('Error fetching groups:', err)
+            setGroups([])
+            setFormData(createDefaultFormState())
         }
-    }
+    }, [groupId, groupName, isOpen, members])
+
+    useEffect(() => {
+        initialiseGroups()
+    }, [initialiseGroups])
+
+    useEffect(() => {
+        if (!isOpen) return
+        if (groups.length === 0) return
+
+        setFormData((prev) => {
+            const nextGroupId = prev.groupId && groups.some((group) => group.id === prev.groupId) ? prev.groupId : groups[0].id
+            const selectedGroup = groups.find((group) => group.id === nextGroupId)
+            const nextUserId =
+                prev.userId && selectedGroup?.members.some((member) => member.id === prev.userId)
+                    ? prev.userId
+                    : selectedGroup?.members[0]?.id ?? ''
+
+            return {
+                ...prev,
+                groupId: nextGroupId,
+                userId: nextUserId,
+            }
+        })
+    }, [groups, isOpen])
 
     if (!isOpen) return null
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
+    const selectedGroup = groups.find((group) => group.id === formData.groupId)
+    const memberOptions = selectedGroup?.members ?? []
+    const showGroupSelect = !groupId && groups.length > 1
+
+    const handleChange = (field: string, value: string) => {
+        if (field === 'groupId') {
+            const targetGroup = groups.find((group) => group.id === value)
+            setFormData((prev) => ({
+                ...prev,
+                groupId: value,
+                userId: targetGroup?.members[0]?.id ?? '',
+            }))
+            return
+        }
+
+        setFormData((prev) => ({
+            ...prev,
+            [field]: value,
+        }))
+    }
+
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault()
         setIsLoading(true)
         setError('')
+
+        if (!formData.groupId) {
+            setError('Please select a group')
+            setIsLoading(false)
+            return
+        }
+
+        if (!formData.userId) {
+            setError('Please select a member')
+            setIsLoading(false)
+            return
+        }
 
         try {
             const response = await fetch('/api/expenses', {
@@ -75,39 +176,27 @@ export function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpenseModalP
                     amount: parseFloat(formData.amount),
                     date: formData.date,
                     paymentSource: formData.paymentSource,
-                    userId: formData.userId
-                })
+                    userId: formData.userId,
+                    groupId: formData.groupId,
+                }),
             })
 
-            if (response.ok) {
-                // Reset form and close modal
-                setFormData({
-                    title: '',
-                    category: '',
-                    amount: '',
-                    date: new Date().toISOString().split('T')[0],
-                    paymentSource: '',
-                    userId: ''
-                })
-                onSuccess?.()
-                onClose()
-            } else {
+            if (!response.ok) {
                 const errorData = await response.json()
-                setError(errorData.error || 'Failed to add expense')
+                throw new Error(errorData.error || 'Failed to add expense')
             }
-        } catch (error) {
-            console.error('Error adding expense:', error)
-            setError('Failed to add expense. Please try again.')
+
+            const defaultUserId = selectedGroup?.members[0]?.id ?? ''
+            setFormData(createDefaultFormState(formData.groupId, defaultUserId))
+            onSuccess?.()
+            onClose()
+            router.refresh()
+        } catch (err: any) {
+            console.error('Error adding expense:', err)
+            setError(err?.message ?? 'Failed to add expense. Please try again.')
         } finally {
             setIsLoading(false)
         }
-    }
-
-    const handleChange = (field: string, value: string) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: value
-        }))
     }
 
     return (
@@ -115,32 +204,67 @@ export function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpenseModalP
             <Card className="w-full max-w-md">
                 <CardHeader>
                     <CardTitle>Add New Expense</CardTitle>
-                    <CardDescription>Record a new expense entry</CardDescription>
+                    <CardDescription>Record a new expense entry for your group</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {error && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
                                 {error}
                             </div>
                         )}
 
                         <div>
+                            <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
+                                Group
+                            </label>
+                            {groups.length === 0 ? (
+                                <div className="text-sm text-gray-500">No groups available.</div>
+                            ) : showGroupSelect ? (
+                                <Select value={formData.groupId} onValueChange={(value) => handleChange('groupId', value)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select group" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {groups.map((group) => (
+                                            <SelectItem key={group.id} value={group.id}>
+                                                {group.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            ) : (
+                                <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                                    {selectedGroup?.name ?? groupName ?? 'Selected Group'}
+                                </div>
+                            )}
+                        </div>
+
+                        <div>
                             <label htmlFor="user" className="block text-sm font-medium text-gray-700 mb-1">
                                 Member
                             </label>
-                            <Select value={formData.userId} onValueChange={(value) => handleChange('userId', value)}>
+                            <Select
+                                value={formData.userId}
+                                onValueChange={(value) => handleChange('userId', value)}
+                                disabled={memberOptions.length === 0}
+                            >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select member" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {users.map((user) => (
-                                        <SelectItem key={user.id} value={user.id}>
-                                            {user.name}
+                                    {memberOptions.map((member) => (
+                                        <SelectItem key={member.id} value={member.id}>
+                                            {member.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {memberOptions.length === 0 && (
+                                <p className="mt-1 text-xs text-red-600">
+                                    No members available for the selected group.
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -150,7 +274,7 @@ export function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpenseModalP
                             <Input
                                 id="title"
                                 value={formData.title}
-                                onChange={(e) => handleChange('title', e.target.value)}
+                                onChange={(event) => handleChange('title', event.target.value)}
                                 placeholder="e.g., Bought Milk"
                                 required
                             />
@@ -182,7 +306,7 @@ export function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpenseModalP
                                 id="amount"
                                 type="number"
                                 value={formData.amount}
-                                onChange={(e) => handleChange('amount', e.target.value)}
+                                onChange={(event) => handleChange('amount', event.target.value)}
                                 placeholder="0"
                                 min="0"
                                 step="0.01"
@@ -198,7 +322,7 @@ export function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpenseModalP
                                 id="date"
                                 type="date"
                                 value={formData.date}
-                                onChange={(e) => handleChange('date', e.target.value)}
+                                onChange={(event) => handleChange('date', event.target.value)}
                                 required
                             />
                         </div>
@@ -225,14 +349,26 @@ export function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpenseModalP
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={onClose}
+                                onClick={() => {
+                                    setError('')
+                                    onClose()
+                                }}
                                 className="flex-1"
+                                disabled={isLoading}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={isLoading || !formData.userId || !formData.title || !formData.category || !formData.amount || !formData.paymentSource}
+                                disabled={
+                                    isLoading ||
+                                    !formData.groupId ||
+                                    !formData.userId ||
+                                    !formData.title ||
+                                    !formData.category ||
+                                    !formData.amount ||
+                                    !formData.paymentSource
+                                }
                                 className="flex-1"
                             >
                                 {isLoading ? 'Adding...' : 'Add Expense'}

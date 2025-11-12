@@ -7,9 +7,12 @@ import { AddExpenseModal } from './AddExpenseModal'
 
 interface AddExpenseButtonProps {
     onSuccess?: () => void
+    groupId?: string
+    groupName?: string
+    members?: Array<{ id: string; name: string }>
 }
 
-export function AddExpenseButton({ onSuccess }: AddExpenseButtonProps) {
+export function AddExpenseButton({ onSuccess, groupId, groupName, members }: AddExpenseButtonProps) {
     const [isModalOpen, setIsModalOpen] = useState(false)
 
     return (
@@ -23,6 +26,9 @@ export function AddExpenseButton({ onSuccess }: AddExpenseButtonProps) {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={onSuccess}
+                groupId={groupId}
+                groupName={groupName}
+                members={members}
             />
         </>
     )

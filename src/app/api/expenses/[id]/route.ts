@@ -10,27 +10,58 @@ export async function PUT(
   try {
     const { id } = params
     const body = await request.json()
-    const { title, category, amount, date, paymentSource, userId } = body
+    const { title, category, amount, date, paymentSource, userId, groupId } = body
+
+    if (!groupId) {
+      return NextResponse.json({ error: 'groupId is required' }, { status: 400 })
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    }
+
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId,
+        userId,
+      },
+    })
+
+    if (!membership) {
+      return NextResponse.json(
+        { error: 'User is not a member of this group' },
+        { status: 403 }
+      )
+    }
+
+    const parsedAmount = typeof amount === 'number' ? amount : parseFloat(amount)
 
     const expense = await prisma.expense.update({
       where: { id },
       data: {
         title,
         category,
-        amount: parseFloat(amount),
+        amount: parsedAmount,
         date: new Date(date),
         paymentSource,
-        userId
+        userId,
+        groupId,
       },
       include: {
         user: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     })
 
     return NextResponse.json(expense)
@@ -51,7 +82,7 @@ export async function DELETE(
     const { id } = params
 
     await prisma.expense.delete({
-      where: { id }
+      where: { id },
     })
 
     return NextResponse.json({ message: 'Expense deleted successfully' })

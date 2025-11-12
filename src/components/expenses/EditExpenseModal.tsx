@@ -1,17 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-
-interface User {
-    id: string
-    name: string
-    email: string
-    role: string
-}
 
 interface Expense {
     id: string
@@ -26,6 +20,16 @@ interface Expense {
         name: string
         email: string
     }
+    group?: {
+        id: string
+        name: string
+    }
+}
+
+interface GroupOption {
+    id: string
+    name: string
+    members: Array<{ id: string; name: string }>
 }
 
 interface EditExpenseModalProps {
@@ -38,54 +42,115 @@ interface EditExpenseModalProps {
 const categories = ['Milk', 'Chicken', 'Vegetables', 'Other']
 const paymentSources = [
     { value: 'COLLECTED', label: 'From Collected Amount' },
-    { value: 'POCKET', label: 'From Own Pocket' }
+    { value: 'POCKET', label: 'From Own Pocket' },
 ]
 
 export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditExpenseModalProps) {
-    const [users, setUsers] = useState<User[]>([])
+    const router = useRouter()
+    const [groups, setGroups] = useState<GroupOption[]>([])
     const [formData, setFormData] = useState({
+        groupId: '',
+        userId: '',
         title: '',
         category: '',
         amount: '',
         date: '',
-        paymentSource: '',
-        userId: ''
+        paymentSource: 'COLLECTED' as 'COLLECTED' | 'POCKET',
     })
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
 
-    useEffect(() => {
-        if (isOpen) {
-            fetchUsers()
-            if (expense) {
-                setFormData({
-                    title: expense.title,
-                    category: expense.category,
-                    amount: expense.amount.toString(),
-                    date: expense.date.split('T')[0],
-                    paymentSource: expense.paymentSource,
-                    userId: expense.userId
-                })
-            }
-        }
-    }, [isOpen, expense])
+    const loadInitialData = useCallback(async () => {
+        if (!isOpen || !expense) return
 
-    const fetchUsers = async () => {
         try {
-            const response = await fetch('/api/users')
-            if (response.ok) {
-                const usersData = await response.json()
-                setUsers(usersData)
+            const response = await fetch('/api/groups', {
+                credentials: 'include',
+                cache: 'no-store',
+            })
+            if (!response.ok) {
+                throw new Error('Failed to load groups')
             }
-        } catch (error) {
-            console.error('Error fetching users:', error)
+
+            const data = await response.json()
+            const mapped: GroupOption[] = Array.isArray(data)
+                ? data.map((group: any) => ({
+                      id: group.id,
+                      name: group.name,
+                      members:
+                          group.members?.map((member: any) => ({
+                              id: member.user?.id ?? member.id,
+                              name: member.user?.name ?? 'Unknown member',
+                          })) ?? [],
+                  }))
+                : []
+
+            setGroups(mapped)
+
+            const defaultGroupId = expense.group?.id ?? mapped[0]?.id ?? ''
+            const selectedGroup = mapped.find((group) => group.id === defaultGroupId)
+            const defaultUserId =
+                expense.userId && selectedGroup?.members.some((member) => member.id === expense.userId)
+                    ? expense.userId
+                    : selectedGroup?.members[0]?.id ?? ''
+
+            setFormData({
+                groupId: defaultGroupId,
+                userId: defaultUserId,
+                title: expense.title,
+                category: expense.category,
+                amount: expense.amount.toString(),
+                date: expense.date.split('T')[0],
+                paymentSource: expense.paymentSource,
+            })
+            setError('')
+        } catch (err) {
+            console.error('Error loading edit data:', err)
+            setGroups([])
+            setError('Failed to load groups for this expense.')
         }
-    }
+    }, [expense, isOpen])
+
+    useEffect(() => {
+        loadInitialData()
+    }, [loadInitialData])
 
     if (!isOpen || !expense) return null
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
+    const selectedGroup = groups.find((group) => group.id === formData.groupId)
+    const memberOptions = selectedGroup?.members ?? []
+
+    const handleChange = (field: string, value: string) => {
+        if (field === 'groupId') {
+            const group = groups.find((item) => item.id === value)
+            setFormData((prev) => ({
+                ...prev,
+                groupId: value,
+                userId: group?.members[0]?.id ?? '',
+            }))
+            return
+        }
+
+        setFormData((prev) => ({
+            ...prev,
+            [field]: value,
+        }))
+    }
+
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault()
+        if (!expense) return
+
+        if (!formData.groupId) {
+            setError('Please select a group')
+            return
+        }
+
+        if (!formData.userId) {
+            setError('Please select a member')
+            return
+        }
+
         setIsLoading(true)
         setError('')
 
@@ -101,30 +166,25 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
                     amount: parseFloat(formData.amount),
                     date: formData.date,
                     paymentSource: formData.paymentSource,
-                    userId: formData.userId
-                })
+                    userId: formData.userId,
+                    groupId: formData.groupId,
+                }),
             })
 
-            if (response.ok) {
-                onSuccess?.()
-                onClose()
-            } else {
+            if (!response.ok) {
                 const errorData = await response.json()
-                setError(errorData.error || 'Failed to update expense')
+                throw new Error(errorData.error || 'Failed to update expense')
             }
-        } catch (error) {
-            console.error('Error updating expense:', error)
-            setError('Failed to update expense. Please try again.')
+
+            onSuccess?.()
+            onClose()
+            router.refresh()
+        } catch (err: any) {
+            console.error('Error updating expense:', err)
+            setError(err?.message ?? 'Failed to update expense. Please try again.')
         } finally {
             setIsLoading(false)
         }
-    }
-
-    const handleChange = (field: string, value: string) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: value
-        }))
     }
 
     return (
@@ -137,27 +197,58 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {error && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
                                 {error}
                             </div>
                         )}
 
                         <div>
+                            <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
+                                Group
+                            </label>
+                            {groups.length === 0 ? (
+                                <div className="text-sm text-gray-500">No groups available.</div>
+                            ) : (
+                                <Select value={formData.groupId} onValueChange={(value) => handleChange('groupId', value)}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select group" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {groups.map((group) => (
+                                            <SelectItem key={group.id} value={group.id}>
+                                                {group.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        </div>
+
+                        <div>
                             <label htmlFor="user" className="block text-sm font-medium text-gray-700 mb-1">
                                 Member
                             </label>
-                            <Select value={formData.userId} onValueChange={(value) => handleChange('userId', value)}>
+                            <Select
+                                value={formData.userId}
+                                onValueChange={(value) => handleChange('userId', value)}
+                                disabled={memberOptions.length === 0}
+                            >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select member" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {users.map((user) => (
-                                        <SelectItem key={user.id} value={user.id}>
-                                            {user.name}
+                                    {memberOptions.map((member) => (
+                                        <SelectItem key={member.id} value={member.id}>
+                                            {member.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {memberOptions.length === 0 && (
+                                <p className="mt-1 text-xs text-red-600">
+                                    No members available for the selected group.
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -167,7 +258,7 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
                             <Input
                                 id="title"
                                 value={formData.title}
-                                onChange={(e) => handleChange('title', e.target.value)}
+                                onChange={(event) => handleChange('title', event.target.value)}
                                 placeholder="e.g., Bought Milk"
                                 required
                             />
@@ -199,7 +290,7 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
                                 id="amount"
                                 type="number"
                                 value={formData.amount}
-                                onChange={(e) => handleChange('amount', e.target.value)}
+                                onChange={(event) => handleChange('amount', event.target.value)}
                                 placeholder="0"
                                 min="0"
                                 step="0.01"
@@ -215,7 +306,7 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
                                 id="date"
                                 type="date"
                                 value={formData.date}
-                                onChange={(e) => handleChange('date', e.target.value)}
+                                onChange={(event) => handleChange('date', event.target.value)}
                                 required
                             />
                         </div>
@@ -242,17 +333,29 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={onClose}
+                                onClick={() => {
+                                    setError('')
+                                    onClose()
+                                }}
                                 className="flex-1"
+                                disabled={isLoading}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={isLoading || !formData.userId || !formData.title || !formData.category || !formData.amount || !formData.paymentSource}
+                                disabled={
+                                    isLoading ||
+                                    !formData.groupId ||
+                                    !formData.userId ||
+                                    !formData.title ||
+                                    !formData.category ||
+                                    !formData.amount ||
+                                    !formData.paymentSource
+                                }
                                 className="flex-1"
                             >
-                                {isLoading ? 'Updating...' : 'Update Expense'}
+                                {isLoading ? 'Saving...' : 'Update Expense'}
                             </Button>
                         </div>
                     </form>

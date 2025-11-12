@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
@@ -8,26 +10,79 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const actorId = (session.user as any)?.id as string | undefined
+    const actorRole = (session.user as any)?.role
+
     const { id } = params
     const body = await request.json()
-    const { userId, amount, month } = body
+    const { userId, amount, month, groupId } = body
+
+    if (!groupId) {
+      return NextResponse.json({ error: 'groupId is required' }, { status: 400 })
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    }
+
+    let hasPermission = actorRole === 'ADMIN'
+
+    if (!hasPermission && actorId) {
+      const actorMembership = await prisma.groupMember.findFirst({
+        where: {
+          groupId,
+          userId: actorId,
+          role: 'ADMIN',
+        },
+      })
+      hasPermission = !!actorMembership
+    }
+
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId,
+        userId,
+      },
+    })
+
+    if (!membership) {
+      return NextResponse.json({ error: 'User is not a member of this group' }, { status: 400 })
+    }
+
+    const parsedAmount = typeof amount === 'number' ? amount : parseFloat(amount)
 
     const contribution = await prisma.contribution.update({
       where: { id },
       data: {
         userId,
-        amount: parseFloat(amount),
-        month
+        amount: parsedAmount,
+        month,
+        groupId,
       },
       include: {
         user: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     })
 
     return NextResponse.json(contribution)
@@ -45,10 +100,46 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    const actorId = (session.user as any)?.id as string | undefined
+    const actorRole = (session.user as any)?.role
+
     const { id } = params
 
+    const existing = await prisma.contribution.findUnique({
+      where: { id },
+      select: {
+        groupId: true,
+      },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Contribution not found' }, { status: 404 })
+    }
+
+    let hasPermission = actorRole === 'ADMIN'
+
+    if (!hasPermission && actorId) {
+      const actorMembership = await prisma.groupMember.findFirst({
+        where: {
+          groupId: existing.groupId,
+          userId: actorId,
+          role: 'ADMIN',
+        },
+      })
+      hasPermission = !!actorMembership
+    }
+
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
     await prisma.contribution.delete({
-      where: { id }
+      where: { id },
     })
 
     return NextResponse.json({ message: 'Contribution deleted successfully' })

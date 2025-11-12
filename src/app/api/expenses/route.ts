@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const paymentSource = searchParams.get('paymentSource')
     const search = searchParams.get('search')
+    const groupId = searchParams.get('groupId')
 
     const where: any = {}
 
@@ -20,10 +21,14 @@ export async function GET(request: NextRequest) {
       where.paymentSource = paymentSource
     }
 
+    if (groupId) {
+      where.groupId = groupId
+    }
+
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' } },
-        { user: { name: { contains: search, mode: 'insensitive' } } }
+        { user: { name: { contains: search, mode: 'insensitive' } } },
       ]
     }
 
@@ -34,13 +39,19 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
+            email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       orderBy: {
-        date: 'desc'
-      }
+        date: 'desc',
+      },
     })
 
     return NextResponse.json(expenses)
@@ -48,7 +59,7 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching expenses:', error)
     return NextResponse.json(
       { error: 'Failed to fetch expenses' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -56,26 +67,57 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { title, category, amount, date, paymentSource, userId } = body
+    const { title, category, amount, date, paymentSource, userId, groupId } = body
+
+    if (!groupId) {
+      return NextResponse.json({ error: 'groupId is required' }, { status: 400 })
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    }
+
+    const membership = await prisma.groupMember.findFirst({
+      where: {
+        groupId,
+        userId,
+      },
+    })
+
+    if (!membership) {
+      return NextResponse.json(
+        { error: 'User is not a member of this group' },
+        { status: 403 },
+      )
+    }
+
+    const parsedAmount = typeof amount === 'number' ? amount : parseFloat(amount)
 
     const expense = await prisma.expense.create({
       data: {
         title,
         category,
-        amount: parseFloat(amount),
+        amount: parsedAmount,
         date: new Date(date),
         paymentSource,
-        userId
+        userId,
+        groupId,
       },
       include: {
         user: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+        group: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     })
 
     return NextResponse.json(expense, { status: 201 })
@@ -83,7 +125,7 @@ export async function POST(request: NextRequest) {
     console.error('Error creating expense:', error)
     return NextResponse.json(
       { error: 'Failed to create expense' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
