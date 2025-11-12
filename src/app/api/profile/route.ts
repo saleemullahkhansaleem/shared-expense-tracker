@@ -16,13 +16,21 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = (session.user as any).id;
+    const userEmail = session.user?.email;
+
+    if (!userId || !userEmail) {
+      return NextResponse.json(
+        { error: "Invalid session data" },
+        { status: 401 }
+      );
+    }
     const { searchParams } = new URL(request.url);
     const groupId = searchParams.get("groupId");
 
     // Get user profile and memberships separately
     const [user, memberships] = await Promise.all([
       prisma.user.findUnique({
-        where: { id: userId },
+        where: { email: userEmail },
         include: {
           contributions: {
             orderBy: { createdAt: "desc" },
@@ -68,6 +76,7 @@ export async function GET(request: NextRequest) {
       id: user.id,
       name: user.name,
       email: user.email,
+      role: user.role,
       createdAt: user.createdAt,
       totalContributions,
       totalExpenses,

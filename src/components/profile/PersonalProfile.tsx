@@ -54,7 +54,10 @@ export function PersonalProfile() {
 
     const fetchUserProfile = async () => {
         try {
-            const response = await fetch('/api/profile')
+            const response = await fetch('/api/profile', {
+                credentials: 'include',
+                cache: 'no-store',
+            })
             if (response.ok) {
                 const userProfile = await response.json()
                 setUserProfile(userProfile)
