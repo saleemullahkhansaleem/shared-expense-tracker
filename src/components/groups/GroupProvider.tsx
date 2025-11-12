@@ -35,7 +35,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
                 fetchGroupDetails(savedGroupId)
             } else {
                 // Redirect to group selection
-                router.push('/groups')
+                router.push('/dashboard/groups')
             }
         }
         setIsLoading(false)
@@ -50,12 +50,12 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
             } else {
                 // Group not found or no access, redirect to group selection
                 localStorage.removeItem('selectedGroupId')
-                router.push('/groups')
+                router.push('/dashboard/groups')
             }
         } catch (error) {
             console.error('Error fetching group:', error)
             localStorage.removeItem('selectedGroupId')
-            router.push('/groups')
+            router.push('/dashboard/groups')
         }
     }
 

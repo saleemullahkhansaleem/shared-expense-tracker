@@ -10,6 +10,7 @@ import {
     Squares2X2Icon,
     UserGroupIcon,
     ArrowPathIcon,
+    ChevronDownIcon,
 } from '@heroicons/react/24/outline'
 
 type DashboardNavLink = {
@@ -39,6 +40,7 @@ export function DashboardNav() {
     const { data: session } = useSession()
     const [groups, setGroups] = useState<GroupSummary[]>([])
     const [isLoadingGroups, setIsLoadingGroups] = useState(true)
+    const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null)
     const isAdmin = (session?.user as any)?.role === 'ADMIN'
 
     useEffect(() => {
@@ -73,9 +75,21 @@ export function DashboardNav() {
         fetchGroups()
     }, [])
 
+    const activeGroupId = useMemo(() => {
+        const match = pathname.match(/^\/dashboard\/groups\/([^/]+)/)
+        return match ? match[1] : null
+    }, [pathname])
+
+    useEffect(() => {
+        if (activeGroupId) {
+            setExpandedGroupId(activeGroupId)
+        }
+    }, [activeGroupId])
+
     const generalLinks: DashboardNavLink[] = useMemo(() => {
         const base: DashboardNavLink[] = [
             { name: 'Dashboard', href: '/dashboard', icon: Squares2X2Icon },
+            { name: 'Groups', href: '/dashboard/groups', icon: UserGroupIcon },
         ]
 
         if (isAdmin) {
@@ -159,34 +173,54 @@ export function DashboardNav() {
                     </div>
                 )}
 
-                <div className="mt-2 space-y-4">
-                    {groupSections.map((section) => (
-                        <div key={section.id}>
-                            <div className="flex items-center px-3 py-2 text-sm font-semibold text-gray-700">
-                                <UserGroupIcon className="mr-2 h-5 w-5 text-gray-400" />
-                                <span className="truncate">{section.name}</span>
+                <div className="mt-2 space-y-3">
+                    {groupSections.map((section) => {
+                        const isExpanded = expandedGroupId === section.id
+
+                        return (
+                            <div key={section.id} className="rounded-md border border-transparent hover:border-gray-200">
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setExpandedGroupId((prev) => (prev === section.id ? null : section.id))
+                                    }
+                                    className="flex w-full items-center justify-between px-3 py-2 text-sm font-semibold text-gray-700"
+                                >
+                                    <span className="flex items-center truncate">
+                                        <UserGroupIcon className="mr-2 h-5 w-5 text-gray-400" />
+                                        <span className="truncate">{section.name}</span>
+                                    </span>
+                                    <ChevronDownIcon
+                                        className={cn(
+                                            'h-4 w-4 text-gray-500 transition-transform duration-150',
+                                            isExpanded ? 'rotate-180' : 'rotate-0'
+                                        )}
+                                    />
+                                </button>
+                                {isExpanded && (
+                                    <div className="space-y-1 pb-2">
+                                        {section.links.map((link) => {
+                                            const isActive = pathname === link.href
+                                            return (
+                                                <Link
+                                                    key={link.href}
+                                                    href={link.href}
+                                                    className={cn(
+                                                        isActive
+                                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
+                                                            : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                                                        'group flex items-center pl-9 pr-3 py-2 text-sm border-l-4 transition-colors rounded-md'
+                                                    )}
+                                                >
+                                                    {link.name}
+                                                </Link>
+                                            )
+                                        })}
+                                    </div>
+                                )}
                             </div>
-                            <div className="mt-1 space-y-1">
-                                {section.links.map((link) => {
-                                    const isActive = pathname === link.href
-                                    return (
-                                        <Link
-                                            key={link.href}
-                                            href={link.href}
-                                            className={cn(
-                                                isActive
-                                                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                                                    : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                                                'group flex items-center pl-9 pr-3 py-2 text-sm border-l-4 transition-colors rounded-md'
-                                            )}
-                                        >
-                                            {link.name}
-                                        </Link>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
             </div>
         </nav>
