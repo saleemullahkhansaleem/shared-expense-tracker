@@ -247,6 +247,13 @@ export function GroupTransactionsList({
                                                 {transaction.expense.title}
                                             </p>
                                         )}
+                                    {transaction.expense &&
+                                        'notes' in transaction.expense &&
+                                        (transaction.expense as any).notes && (
+                                            <p className="text-gray-500">
+                                                {(transaction.expense as any).notes}
+                                            </p>
+                                        )}
                                 </div>
                             </div>
                             <div className="mt-3 flex flex-col items-start gap-3 sm:mt-0 sm:flex-row sm:items-center sm:gap-4">

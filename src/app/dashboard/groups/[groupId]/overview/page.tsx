@@ -173,6 +173,7 @@ export default async function GroupOverviewPage({
                             email: expense.user.email ?? undefined,
                         }
                         : null,
+                    notes: (expense as any).details ?? null,
                     group: {
                         id: group.id,
                         name: group.name,
