@@ -108,9 +108,11 @@ export function EditContributionModal({ isOpen, onClose, onSuccess, contribution
 
             const defaultGroupId = contribution.group?.id ?? mapped[0]?.id ?? ''
             const selectedGroup = mapped.find((group) => group.id === defaultGroupId)
+            const contributionUserId = contribution.user?.id
             const defaultUserId =
-                contribution.user?.id && selectedGroup?.members.some((member) => member.id === contribution.user.id)
-                    ? contribution.user.id
+                contributionUserId &&
+                selectedGroup?.members.some((member) => member.id === contributionUserId)
+                    ? contributionUserId
                     : selectedGroup?.members[0]?.id ?? ''
 
             setFormData({

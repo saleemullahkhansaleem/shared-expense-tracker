@@ -1,8 +1,9 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
-import { DashboardNav } from '@/components/dashboard/DashboardNav'
 import { UserNav } from '@/components/dashboard/UserNav'
+import { DashboardNav } from '@/components/dashboard/DashboardNav'
+import { DashboardMobileMenu } from '@/components/dashboard/DashboardMobileMenu'
 
 export default async function DashboardLayout({
     children,
@@ -36,16 +37,8 @@ export default async function DashboardLayout({
                 <div className="md:pl-64 flex flex-col flex-1">
                     {/* Top navigation */}
                     <div className="sticky top-0 z-10 flex-shrink-0 flex h-16 bg-white shadow">
-                        <div className="flex-1 px-4 flex justify-between">
-                            <div className="flex-1 flex">
-                                {/* Mobile menu button */}
-                                <button className="md:hidden px-4 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
-                                    <span className="sr-only">Open sidebar</span>
-                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                    </svg>
-                                </button>
-                            </div>
+                    <div className="flex-1 px-4 flex items-center justify-between">
+                        <DashboardMobileMenu />
                             <div className="ml-4 flex items-center md:ml-6">
                                 <UserNav user={session?.user || {}} />
                             </div>

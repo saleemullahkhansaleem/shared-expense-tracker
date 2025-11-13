@@ -36,7 +36,11 @@ interface GroupSummary {
     name: string
 }
 
-export function DashboardNav() {
+interface DashboardNavProps {
+    onNavigate?: () => void
+}
+
+export function DashboardNav({ onNavigate }: DashboardNavProps = {}) {
     const pathname = usePathname()
     const { data: session } = useSession()
     const [groups, setGroups] = useState<GroupSummary[]>([])
@@ -161,6 +165,7 @@ export function DashboardNav() {
                                         : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900',
                                     'group flex items-center px-3 py-2 text-sm font-medium border-l-4 transition-colors rounded-md'
                                 )}
+                                onClick={onNavigate}
                             >
                                 <Icon
                                     className={cn(
@@ -232,6 +237,7 @@ export function DashboardNav() {
                                                             : 'border-transparent text-gray-600 hover:bg-gray-50 hover:text-gray-900',
                                                         'group flex items-center pl-9 pr-3 py-2 text-sm border-l-4 transition-colors rounded-md'
                                                     )}
+                                                    onClick={onNavigate}
                                                 >
                                                     {link.name}
                                                 </Link>
