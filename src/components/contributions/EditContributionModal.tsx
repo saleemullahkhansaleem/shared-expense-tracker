@@ -13,11 +13,13 @@ interface Contribution {
     amount: number
     month: string
     createdAt: string
-    user: {
-        id: string
-        name: string
-        email?: string
-    }
+    user:
+        | {
+              id: string
+              name: string
+              email?: string
+          }
+        | null
     group?: {
         id: string
         name: string
