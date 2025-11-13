@@ -343,14 +343,14 @@ export function AddExpenseModal({ isOpen, onClose, onSuccess, groupId, groupName
                                             className={cn(
                                                 'h-auto justify-start gap-3 border text-left transition-shadow',
                                                 isActive
-                                                    ? 'border-primary bg-indigo-50 shadow-md'
+                                                    ? 'border-primary bg-primary/10 shadow-md'
                                                     : 'border-gray-200 hover:border-indigo-200'
                                             )}
                                         >
                                             <Icon
                                                 className={cn(
                                                     'h-5 w-5 flex-shrink-0',
-                                                    isActive ? 'text-indigo-600' : 'text-gray-400'
+                                                    isActive ? 'text-primary' : 'text-gray-400'
                                                 )}
                                             />
                                             <div className="flex flex-col">
