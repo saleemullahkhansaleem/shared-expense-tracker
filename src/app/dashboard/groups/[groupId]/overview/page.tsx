@@ -1,11 +1,32 @@
+import type { ComponentType, SVGProps } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
-import { GroupRecentContributionsCard } from '@/components/groups/GroupRecentContributionsCard'
-import { GroupRecentExpensesCard } from '@/components/groups/GroupRecentExpensesCard'
+import { GroupExpenseCategoryChart } from '@/components/groups/GroupExpenseCategoryChart'
+import { GroupTransactionsList, GroupTransactionItem } from '@/components/groups/GroupTransactionsList'
+import {
+    ArrowPathIcon,
+    ArrowTrendingUpIcon,
+    BanknotesIcon,
+    ChartPieIcon,
+    ClockIcon,
+    CurrencyDollarIcon,
+    UserGroupIcon,
+    WalletIcon,
+} from '@heroicons/react/24/outline'
+
+type TransactionItem = GroupTransactionItem
+
+type StatCardProps = {
+    title: string
+    primary: string
+    secondary?: string
+    icon: ComponentType<SVGProps<SVGSVGElement>>
+    accent: string
+}
 
 export default async function GroupOverviewPage({
     params,
@@ -37,7 +58,6 @@ export default async function GroupOverviewPage({
                     },
                 },
                 orderBy: { createdAt: 'desc' },
-                take: 5,
             },
             expenses: {
                 include: {
@@ -46,7 +66,6 @@ export default async function GroupOverviewPage({
                     },
                 },
                 orderBy: { date: 'desc' },
-                take: 5,
             },
         },
     })
@@ -60,144 +79,255 @@ export default async function GroupOverviewPage({
         redirect('/dashboard')
     }
 
-    const totalContributions = group.contributions.reduce(
+    const totalMembers = group.members.length
+    const totalCollectedContributions = group.contributions.reduce(
         (sum, contribution) => sum + contribution.amount,
         0
     )
+    const expectedContributionPerMember = group.monthlyAmount ?? 0
+    const totalExpectedContributions = expectedContributionPerMember * totalMembers
+    const totalPendingContributions = Math.max(totalExpectedContributions - totalCollectedContributions, 0)
 
     const totalExpenses = group.expenses.reduce((sum, expense) => sum + expense.amount, 0)
-    const collectedExpenses = group.expenses
+    const expensesFromContributions = group.expenses
         .filter((expense) => expense.paymentSource === 'COLLECTED')
         .reduce((sum, expense) => sum + expense.amount, 0)
-    const collectedBalance = totalContributions - collectedExpenses
-    const memberCount = group.members.length
-    const isGroupAdmin = membership.role === 'ADMIN'
-    const groupMembersForModal = group.members
-        .map((member) =>
-            member.user
-                ? {
-                      id: member.user.id,
-                      name: member.user.name,
-                  }
-                : null
-        )
-        .filter((member): member is { id: string; name: string } => member !== null)
+    const expensesFromMembersPockets = group.expenses
+        .filter((expense) => expense.paymentSource === 'POCKET')
+        .reduce((sum, expense) => sum + expense.amount, 0)
+    const pocketExpenseCount = group.expenses.filter((expense) => expense.paymentSource === 'POCKET').length
+    const totalBalance = totalCollectedContributions - totalExpenses
 
-    const initialContributions = group.contributions.map((contribution) => ({
-        id: contribution.id,
-        amount: contribution.amount,
-        month: contribution.month,
-        createdAt:
-            contribution.createdAt instanceof Date
-                ? contribution.createdAt.toISOString()
-                : new Date(contribution.createdAt).toISOString(),
-        userId: contribution.userId,
-        user: contribution.user
-            ? {
-                  id: contribution.user.id,
-                  name: contribution.user.name,
-                  email: contribution.user.email ?? undefined,
-              }
-            : null,
-        group: {
-            id: group.id,
-            name: group.name,
+    const categoryMap = new Map<string, number>()
+    group.expenses.forEach((expense) => {
+        const category = expense.category || 'Uncategorized'
+        categoryMap.set(category, (categoryMap.get(category) ?? 0) + expense.amount)
+    })
+
+    const categoryChartData = Array.from(categoryMap.entries())
+        .map(([category, amount]) => ({
+            name: category,
+            value: amount,
+        }))
+        .sort((a, b) => b.value - a.value)
+
+    const latestTransactions: TransactionItem[] = [
+        ...group.contributions.map((contribution) => {
+            const createdAt =
+                contribution.createdAt instanceof Date
+                    ? contribution.createdAt
+                    : new Date(contribution.createdAt)
+            return {
+                id: contribution.id,
+                type: 'CONTRIBUTION' as const,
+                entity: 'contribution' as const,
+                amount: contribution.amount,
+                userName: contribution.user?.name ?? 'Unknown member',
+                timestamp: createdAt.toISOString(),
+                linkHref: `/dashboard/groups/${group.id}/contributions?highlight=${contribution.id}`,
+                meta: `Contribution for ${contribution.month}`,
+                contribution: {
+                    id: contribution.id,
+                    amount: contribution.amount,
+                    month: contribution.month,
+                    createdAt: createdAt.toISOString(),
+                    userId: contribution.userId,
+                    user: contribution.user
+                        ? {
+                            id: contribution.user.id,
+                            name: contribution.user.name,
+                            email: contribution.user.email ?? undefined,
+                        }
+                        : null,
+                    group: {
+                        id: group.id,
+                        name: group.name,
+                    },
+                },
+            }
+        }),
+        ...group.expenses.map((expense) => {
+            const date = expense.date instanceof Date ? expense.date : new Date(expense.date)
+            return {
+                id: expense.id,
+                type: 'EXPENSE' as const,
+                entity: 'expense' as const,
+                amount: expense.amount,
+                userName: expense.user?.name ?? 'Unknown member',
+                timestamp: date.toISOString(),
+                linkHref: `/dashboard/groups/${group.id}/expenses?highlight=${expense.id}`,
+                meta: expense.paymentSource === 'POCKET' ? 'Paid from pocket' : 'Paid from contributions',
+                expense: {
+                    id: expense.id,
+                    title: expense.title,
+                    category: expense.category,
+                    amount: expense.amount,
+                    date: date.toISOString(),
+                    paymentSource: expense.paymentSource,
+                    userId: expense.userId,
+                    user: expense.user
+                        ? {
+                            id: expense.user.id,
+                            name: expense.user.name,
+                            email: expense.user.email ?? undefined,
+                        }
+                        : null,
+                    group: {
+                        id: group.id,
+                        name: group.name,
+                    },
+                },
+            }
+        }),
+    ]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 50)
+
+    const pocketShare = totalExpenses > 0 ? Math.round((expensesFromMembersPockets / totalExpenses) * 100) : 0
+    const collectedShare = totalExpenses > 0 ? Math.round((expensesFromContributions / totalExpenses) * 100) : 0
+
+    const stats: StatCardProps[] = [
+        {
+            title: 'Total Members',
+            primary: totalMembers.toString(),
+            icon: UserGroupIcon,
+            accent: 'text-indigo-600',
         },
-    }))
+        {
+            title: 'Collected vs Expected',
+            primary: formatCurrency(totalCollectedContributions),
+            secondary: `Expected ${formatCurrency(totalExpectedContributions)}`,
+            icon: BanknotesIcon,
+            accent: 'text-green-600',
+        },
+        {
+            title: 'Pending Contributions',
+            primary: formatCurrency(totalPendingContributions),
+            secondary: totalPendingContributions > 0 ? 'Collect from members' : 'All caught up',
+            icon: ClockIcon,
+            accent: 'text-amber-600',
+        },
+        {
+            title: 'Total Balance',
+            primary: formatCurrency(totalBalance),
+            secondary: `${formatCurrency(totalCollectedContributions)} collected • ${formatCurrency(totalExpenses)} spent`,
+            icon: ArrowTrendingUpIcon,
+            accent: 'text-sky-600',
+        },
+        {
+            title: 'Pocket Reimbursements',
+            primary: formatCurrency(expensesFromMembersPockets),
+            secondary: pocketExpenseCount > 0 ? `${pocketExpenseCount} pocket expense${pocketExpenseCount === 1 ? '' : 's'}` : 'No outstanding reimbursements',
+            icon: WalletIcon,
+            accent: 'text-purple-600',
+        },
+        {
+            title: 'Total Expenses',
+            primary: formatCurrency(totalExpenses),
+            secondary: `${group.expenses.length} expense${group.expenses.length === 1 ? '' : 's'}`,
+            icon: CurrencyDollarIcon,
+            accent: 'text-red-600',
+        },
+        {
+            title: 'Expenses from Contributions',
+            primary: formatCurrency(expensesFromContributions),
+            secondary: totalExpenses > 0 ? `${collectedShare}% of total spend` : 'No recorded expenses',
+            icon: ChartPieIcon,
+            accent: 'text-teal-600',
+        },
+        {
+            title: 'Expenses from Members',
+            primary: formatCurrency(expensesFromMembersPockets),
+            secondary: totalExpenses > 0 ? `${pocketShare}% of total spend` : 'No recorded expenses',
+            icon: ArrowPathIcon,
+            accent: 'text-rose-600',
+        },
+    ]
 
-    const initialExpenses = group.expenses.map((expense) => ({
-        id: expense.id,
-        title: expense.title,
-        category: expense.category,
-        amount: expense.amount,
-        date: expense.date instanceof Date ? expense.date.toISOString() : new Date(expense.date).toISOString(),
-        paymentSource: expense.paymentSource,
-        userId: expense.userId,
-        user: expense.user
-            ? {
-                  id: expense.user.id,
-                  name: expense.user.name,
-                  email: expense.user.email ?? undefined,
-              }
-            : null,
-    }))
-
+    const isGroupAdmin = membership.role === 'ADMIN'
     return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Total Contributions</CardTitle>
+        <div className="space-y-8">
+            <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                {stats.map((stat) => (
+                    <StatCard key={stat.title} {...stat} />
+                ))}
+            </section>
+
+            <section className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+                <Card className="lg:col-span-3">
+                    <CardHeader className="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Latest Transactions</CardTitle>
+                            <p className="text-sm text-gray-500">
+                                Most recent contributions and expenses for this group.
+                            </p>
+                        </div>
+                        <span className="text-xs font-medium uppercase tracking-wide text-indigo-600">
+                            Last {latestTransactions.length} items
+                        </span>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-semibold text-green-600">
-                            {formatCurrency(totalContributions)}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                            {group.contributions.length} contributions recorded
-                        </p>
+                        <GroupTransactionsList
+                            initialTransactions={latestTransactions}
+                            isGroupAdmin={isGroupAdmin}
+                            currentUserId={userId}
+                        />
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="lg:col-span-2">
                     <CardHeader>
-                        <CardTitle>Total Expenses</CardTitle>
+                        <CardTitle>Expenses by Category</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-semibold text-red-600">
-                            {formatCurrency(totalExpenses)}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                            {group.expenses.length} expenses recorded
-                        </p>
+                        <GroupExpenseCategoryChart data={categoryChartData} />
                     </CardContent>
                 </Card>
+            </section>
 
+            <section>
                 <Card>
                     <CardHeader>
-                        <CardTitle>Collected Balance</CardTitle>
+                        <CardTitle>Group Activity Overview</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <p className={`text-2xl font-semibold ${collectedBalance >= 0 ? 'text-indigo-600' : 'text-orange-600'}`}>
-                            {formatCurrency(collectedBalance)}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                            Net of {formatCurrency(totalContributions)} collected minus
-                            {formatCurrency(collectedExpenses)} expenses from collection
-                        </p>
+                    <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="rounded-lg border border-gray-100 p-4">
+                            <p className="text-xs uppercase tracking-wide text-gray-500">Members</p>
+                            <p className="text-lg font-semibold text-gray-900">{totalMembers}</p>
+                        </div>
+                        <div className="rounded-lg border border-gray-100 p-4">
+                            <p className="text-xs uppercase tracking-wide text-gray-500">Contributions Logged</p>
+                            <p className="text-lg font-semibold text-gray-900">{group.contributions.length}</p>
+                        </div>
+                        <div className="rounded-lg border border-gray-100 p-4">
+                            <p className="text-xs uppercase tracking-wide text-gray-500">Expenses Logged</p>
+                            <p className="text-lg font-semibold text-gray-900">{group.expenses.length}</p>
+                        </div>
+                        <div className="rounded-lg border border-gray-100 p-4">
+                            <p className="text-xs uppercase tracking-wide text-gray-500">Outstanding Pocket Claims</p>
+                            <p className="text-lg font-semibold text-gray-900">{pocketExpenseCount}</p>
+                        </div>
                     </CardContent>
                 </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Members</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-2xl font-semibold text-blue-600">{memberCount}</p>
-                        <p className="text-sm text-gray-500">Active participants in this group</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <GroupRecentContributionsCard
-                    groupId={group.id}
-                    groupName={group.name}
-                    initialContributions={initialContributions}
-                    members={groupMembersForModal}
-                    isGroupAdmin={isGroupAdmin}
-                />
-
-                <GroupRecentExpensesCard
-                    groupId={group.id}
-                    groupName={group.name}
-                    initialExpenses={initialExpenses}
-                    members={groupMembersForModal}
-                    currentUserId={userId}
-                    isGroupAdmin={isGroupAdmin}
-                />
-            </div>
+            </section>
         </div>
+    )
+}
+
+function StatCard({ title, primary, secondary, icon: Icon, accent }: StatCardProps) {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                <div>
+                    <CardTitle className="text-sm font-medium text-gray-500">{title}</CardTitle>
+                    {secondary && <p className="mt-1 text-xs text-gray-400">{secondary}</p>}
+                </div>
+                <Icon className={`h-5 w-5 ${accent}`} />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-semibold text-gray-900">{primary}</div>
+            </CardContent>
+        </Card>
     )
 }
 

@@ -18,7 +18,7 @@ export function AddContributionButton({ onSuccess, groupId, groupName, members, 
 
     return (
         <>
-            <Button onClick={() => setIsModalOpen(true)} disabled={disabled}>
+            <Button variant="outline" onClick={() => setIsModalOpen(true)} disabled={disabled}>
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Add Contribution
             </Button>

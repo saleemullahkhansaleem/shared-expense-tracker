@@ -31,6 +31,7 @@ interface GroupRecentContributionsCardProps {
     initialContributions: ContributionSummary[]
     members: Array<{ id: string; name: string }>
     isGroupAdmin: boolean
+    showAddButton?: boolean
 }
 
 const normalizeContribution = (
@@ -54,6 +55,7 @@ export function GroupRecentContributionsCard({
     initialContributions,
     members,
     isGroupAdmin,
+    showAddButton = true,
 }: GroupRecentContributionsCardProps) {
     const fallbackGroup = useMemo(
         () => ({
@@ -130,7 +132,7 @@ export function GroupRecentContributionsCard({
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle>Recent Contributions</CardTitle>
-                    {isGroupAdmin && (
+                    {isGroupAdmin && showAddButton && (
                         <AddContributionButton
                             onSuccess={refreshContributions}
                             groupId={groupId}

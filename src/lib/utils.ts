@@ -22,6 +22,16 @@ export function formatDate(date: Date): string {
     }).format(date)
 }
 
+export function formatDateTime(date: Date): string {
+    return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    }).format(date)
+}
+
 export function getCurrentMonth(): string {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`

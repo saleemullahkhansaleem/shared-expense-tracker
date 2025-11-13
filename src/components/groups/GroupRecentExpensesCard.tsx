@@ -32,6 +32,7 @@ interface GroupRecentExpensesCardProps {
     members: Array<{ id: string; name: string }>
     currentUserId?: string
     isGroupAdmin: boolean
+    showAddButton?: boolean
 }
 
 export function GroupRecentExpensesCard({
@@ -41,6 +42,7 @@ export function GroupRecentExpensesCard({
     members,
     currentUserId,
     isGroupAdmin,
+    showAddButton = true,
 }: GroupRecentExpensesCardProps) {
     const [expenses, setExpenses] = useState<ExpenseSummary[]>(initialExpenses)
     const [editingExpense, setEditingExpense] = useState<ExpenseSummary | null>(null)
@@ -111,12 +113,14 @@ export function GroupRecentExpensesCard({
             <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle>Recent Expenses</CardTitle>
-                    <AddExpenseButton
-                        onSuccess={refreshExpenses}
-                        groupId={groupId}
-                        groupName={groupName}
-                        members={members}
-                    />
+                    {showAddButton && (
+                        <AddExpenseButton
+                            onSuccess={refreshExpenses}
+                            groupId={groupId}
+                            groupName={groupName}
+                            members={members}
+                        />
+                    )}
                 </div>
             </CardHeader>
             <CardContent>
