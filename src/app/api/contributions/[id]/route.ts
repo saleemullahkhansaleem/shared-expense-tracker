@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -86,7 +87,7 @@ export async function PUT(
 
     const trimmedNotes = typeof notes === "string" ? notes.trim() : "";
 
-    const data: Record<string, any> = {
+    const data: Prisma.ContributionUncheckedUpdateInput = {
       userId,
       amount: parsedAmount,
       month,
