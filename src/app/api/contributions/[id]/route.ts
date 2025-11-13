@@ -86,7 +86,7 @@ export async function PUT(
 
     const trimmedNotes = typeof notes === "string" ? notes.trim() : "";
 
-    const data = {
+    const data: Record<string, any> = {
       userId,
       amount: parsedAmount,
       month,
