@@ -109,7 +109,7 @@ export function GroupRecentExpensesCard({
     return (
         <Card>
             <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle>Recent Expenses</CardTitle>
                     <AddExpenseButton
                         onSuccess={refreshExpenses}
@@ -131,25 +131,25 @@ export function GroupRecentExpensesCard({
                         return (
                             <div
                                 key={expense.id}
-                                className="flex items-center justify-between rounded-md border border-gray-100 bg-gray-50 px-4 py-3"
+                                className="rounded-md border border-gray-100 bg-gray-50 px-4 py-3"
                             >
-                                <div>
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <p className="text-sm font-medium text-gray-900">
                                         {expense.title}
                                     </p>
-                                    <p className="text-xs text-gray-500 flex items-center space-x-2">
+                                    <p className="text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1">
                                         <span>{expense.user?.name ?? 'Unknown'}</span>
-                                        <span>•</span>
+                                        <span className="hidden sm:inline">•</span>
                                         <span>{formatDate(new Date(expense.date))}</span>
-                                        <span>•</span>
+                                        <span className="hidden sm:inline">•</span>
                                         <span>{paymentLabel(expense.paymentSource)}</span>
                                     </p>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                    <p className="text-sm font-medium text-red-600">
+                                <div className="mt-3 flex flex-col gap-3 sm:mt-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <p className="text-sm font-medium text-red-600 sm:text-right">
                                         -{formatCurrency(expense.amount)}
                                     </p>
-                                    <div className="flex items-center space-x-2">
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -160,6 +160,7 @@ export function GroupRecentExpensesCard({
                                                     ? 'Edit expense'
                                                     : 'Only the payer or group admins can edit this expense'
                                             }
+                                            className="w-full sm:w-auto"
                                         >
                                             <PencilIcon className="h-4 w-4" />
                                         </Button>
@@ -167,7 +168,7 @@ export function GroupRecentExpensesCard({
                                             variant="outline"
                                             size="sm"
                                             onClick={() => handleDelete(expense)}
-                                            className="text-red-600 hover:text-red-700"
+                                            className="w-full text-red-600 hover:text-red-700 sm:w-auto"
                                             disabled={!manageable}
                                             title={
                                                 manageable

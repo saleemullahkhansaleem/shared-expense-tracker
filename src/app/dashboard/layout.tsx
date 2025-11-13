@@ -37,8 +37,9 @@ export default async function DashboardLayout({
                 <div className="md:pl-64 flex flex-col flex-1">
                     {/* Top navigation */}
                     <div className="sticky top-0 z-10 flex-shrink-0 flex h-16 bg-white shadow">
-                    <div className="flex-1 px-4 flex items-center justify-between">
-                        <DashboardMobileMenu />
+                        <div className="flex-1 px-4 flex items-center justify-between">
+                            <DashboardMobileMenu />
+                            <div></div>
                             <div className="ml-4 flex items-center md:ml-6">
                                 <UserNav user={session?.user || {}} />
                             </div>
