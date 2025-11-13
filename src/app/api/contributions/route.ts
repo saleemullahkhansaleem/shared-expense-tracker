@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     const actorRole = (session.user as any)?.role
 
     const body = await request.json()
-    const { userId, amount, month, groupId } = body
+    const { userId, amount, month, groupId, notes } = body
 
     if (!groupId) {
       return NextResponse.json({ error: 'groupId is required' }, { status: 400 })
@@ -121,29 +121,72 @@ export async function POST(request: NextRequest) {
 
     const parsedAmount = typeof amount === 'number' ? amount : parseFloat(amount)
 
-    const contribution = await prisma.contribution.create({
-      data: {
-        userId,
-        amount: parsedAmount,
-        month,
-        groupId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    if (Number.isNaN(parsedAmount)) {
+      return NextResponse.json({ error: 'Amount must be a valid number' }, { status: 400 })
+    }
+
+    const trimmedNotes =
+      typeof notes === 'string' ? notes.trim() : ''
+
+    const data: any = {
+      userId,
+      amount: parsedAmount,
+      month,
+      groupId,
+    }
+
+    const includeNotes = Object.prototype.hasOwnProperty.call(body, 'notes')
+
+    if (includeNotes && trimmedNotes.length > 0) {
+      data.notes = trimmedNotes
+    }
+
+    let contribution
+    try {
+      contribution = await prisma.contribution.create({
+        data,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          group: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-        group: {
-          select: {
-            id: true,
-            name: true,
+      })
+    } catch (error) {
+      if (includeNotes && trimmedNotes.length > 0) {
+        console.warn('Create contribution with notes failed, retrying without notes', error)
+        delete data.notes
+        contribution = await prisma.contribution.create({
+          data,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            group: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
-        },
-      },
-    })
+        })
+      } else {
+        throw error
+      }
+    }
 
     return NextResponse.json(contribution, { status: 201 })
   } catch (error) {

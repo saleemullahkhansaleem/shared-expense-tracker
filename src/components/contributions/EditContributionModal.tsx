@@ -13,6 +13,7 @@ interface Contribution {
     amount: number
     month: string
     createdAt: string
+    notes?: string | null
     user:
         | {
               id: string
@@ -62,6 +63,7 @@ export function EditContributionModal({ isOpen, onClose, onSuccess, contribution
         userId: '',
         amount: '',
         month: monthOptions[0]?.value ?? '',
+        details: '',
     })
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
@@ -120,6 +122,7 @@ export function EditContributionModal({ isOpen, onClose, onSuccess, contribution
                 userId: defaultUserId,
                 amount: contribution.amount.toString(),
                 month: contribution.month,
+                details: typeof contribution.notes === 'string' ? contribution.notes : '',
             })
             setError(mapped.length === 0 ? 'You must be a group admin to modify contributions.' : '')
         } catch (err) {
@@ -173,17 +176,24 @@ export function EditContributionModal({ isOpen, onClose, onSuccess, contribution
         setError('')
 
         try {
+            const payload: Record<string, any> = {
+                userId: formData.userId,
+                amount: parseFloat(formData.amount),
+                month: formData.month,
+                groupId: formData.groupId,
+            }
+            const trimmedNotes = formData.details?.trim() ?? ''
+            const includeNotes = typeof contribution.notes !== 'undefined' || trimmedNotes.length > 0
+            if (includeNotes) {
+                payload.notes = trimmedNotes.length > 0 ? trimmedNotes : null
+            }
+
             const response = await fetch(`/api/contributions/${contribution.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    userId: formData.userId,
-                    amount: parseFloat(formData.amount),
-                    month: formData.month,
-                    groupId: formData.groupId,
-                }),
+                body: JSON.stringify(payload),
             })
 
             if (!response.ok) {
@@ -297,6 +307,20 @@ export function EditContributionModal({ isOpen, onClose, onSuccess, contribution
                                 min="0"
                                 step="0.01"
                                 required
+                            />
+                        </div>
+
+                        <div>
+                            <label htmlFor="details" className="block text-sm font-medium text-gray-700 mb-1">
+                                Contribution Details <span className="text-xs text-gray-400">(optional)</span>
+                            </label>
+                            <textarea
+                                id="details"
+                                value={formData.details}
+                                onChange={(event) => handleChange('details', event.target.value)}
+                                placeholder="Add notes or context"
+                                rows={3}
+                                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
                             />
                         </div>
 

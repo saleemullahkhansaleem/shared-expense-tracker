@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
+import { BanknotesIcon, WalletIcon } from '@heroicons/react/24/outline'
 
 interface Expense {
     id: string
@@ -41,9 +43,17 @@ interface EditExpenseModalProps {
 
 const categories = ['Milk', 'Chicken', 'Vegetables', 'Other']
 const paymentSources = [
-    { value: 'COLLECTED', label: 'From Collected Amount' },
-    { value: 'POCKET', label: 'From Own Pocket' },
-]
+    {
+        value: 'COLLECTED',
+        title: 'Collected Funds',
+        icon: BanknotesIcon,
+    },
+    {
+        value: 'POCKET',
+        title: 'Paid from Pocket',
+        icon: WalletIcon,
+    },
+] as const
 
 export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditExpenseModalProps) {
     const router = useRouter()
@@ -51,7 +61,7 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
     const [formData, setFormData] = useState({
         groupId: '',
         userId: '',
-        title: '',
+        details: '',
         category: '',
         amount: '',
         date: '',
@@ -97,7 +107,7 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
             setFormData({
                 groupId: defaultGroupId,
                 userId: defaultUserId,
-                title: expense.title,
+                details: expense.title === 'Expense' ? '' : expense.title,
                 category: expense.category,
                 amount: expense.amount.toString(),
                 date: expense.date.split('T')[0],
@@ -161,13 +171,14 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    title: formData.title,
+                    title: formData.details?.trim() ? formData.details.trim() : 'Expense',
                     category: formData.category,
                     amount: parseFloat(formData.amount),
                     date: formData.date,
                     paymentSource: formData.paymentSource,
                     userId: formData.userId,
                     groupId: formData.groupId,
+                    details: formData.details?.trim() ?? '',
                 }),
             })
 
@@ -252,15 +263,16 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
                         </div>
 
                         <div>
-                            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                                Expense Title
+                            <label htmlFor="details" className="block text-sm font-medium text-gray-700 mb-1">
+                                Expense Details <span className="text-xs text-gray-400">(optional)</span>
                             </label>
-                            <Input
-                                id="title"
-                                value={formData.title}
-                                onChange={(event) => handleChange('title', event.target.value)}
-                                placeholder="e.g., Bought Milk"
-                                required
+                            <textarea
+                                id="details"
+                                value={formData.details}
+                                onChange={(event) => handleChange('details', event.target.value)}
+                                placeholder="Add notes or context for this expense"
+                                rows={3}
+                                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
                             />
                         </div>
 
@@ -312,21 +324,40 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
                         </div>
 
                         <div>
-                            <label htmlFor="paymentSource" className="block text-sm font-medium text-gray-700 mb-1">
-                                Payment Source
-                            </label>
-                            <Select value={formData.paymentSource} onValueChange={(value) => handleChange('paymentSource', value)}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select payment source" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {paymentSources.map((source) => (
-                                        <SelectItem key={source.value} value={source.value}>
-                                            {source.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <p className="block text-sm font-medium text-gray-700 mb-2">Payment Source</p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                {paymentSources.map((source) => {
+                                    const isActive = formData.paymentSource === source.value
+                                    const Icon = source.icon
+                                    return (
+                                        <Button
+                                            key={source.value}
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => handleChange('paymentSource', source.value)}
+                                            aria-pressed={isActive}
+                                            className={cn(
+                                                'h-auto justify-start gap-3 border text-left transition-shadow',
+                                                isActive
+                                                    ? 'border-primary bg-primary/10 shadow-md'
+                                                    : 'border-gray-200 hover:border-indigo-200'
+                                            )}
+                                        >
+                                            <Icon
+                                                className={cn(
+                                                    'h-5 w-5 flex-shrink-0',
+                                                    isActive ? 'text-primary' : 'text-gray-400'
+                                                )}
+                                            />
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-900">
+                                                    {source.title}
+                                                </p>
+                                            </div>
+                                        </Button>
+                                    )
+                                })}
+                            </div>
                         </div>
 
                         <div className="flex space-x-3 pt-4">

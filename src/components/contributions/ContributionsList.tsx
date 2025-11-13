@@ -17,6 +17,7 @@ interface Contribution {
     amount: number
     month: string
     createdAt: string
+    notes?: string | null
     user: {
         id: string
         name: string
@@ -316,6 +317,9 @@ export function ContributionsList() {
                                                 </>
                                             )}
                                         </div>
+                                        {contribution.notes && (
+                                            <p className="mt-1 text-xs text-gray-500">{contribution.notes}</p>
+                                        )}
                                     </div>
                                     <div className="flex items-center space-x-3">
                                         <div className="text-right">

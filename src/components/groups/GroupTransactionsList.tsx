@@ -14,6 +14,7 @@ type TransactionContribution = {
     amount: number
     month: string
     createdAt: string
+    notes?: string | null
     userId: string
     user: {
         id: string
@@ -209,11 +210,10 @@ export function GroupTransactionsList({
                             <div className="space-y-1">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <span
-                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                            transaction.type === 'CONTRIBUTION'
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-red-100 text-red-700'
-                                        }`}
+                                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${transaction.type === 'CONTRIBUTION'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-red-100 text-red-700'
+                                            }`}
                                     >
                                         {transaction.type === 'CONTRIBUTION' ? 'Contribution' : 'Expense'}
                                     </span>
@@ -228,14 +228,25 @@ export function GroupTransactionsList({
                                         <ArrowTopRightOnSquareIcon className="ml-1 h-4 w-4" />
                                     </Link>
                                 </div>
-                                <div className="text-xs text-gray-500">
-                                    {formatDateTime(new Date(transaction.timestamp))}
-                                    {transaction.meta && (
-                                        <>
-                                            <span className="mx-2 text-gray-300">•</span>
-                                            <span>{transaction.meta}</span>
-                                        </>
+                                <div className="text-xs text-gray-500 space-y-1">
+                                    <p>
+                                        {formatDateTime(new Date(transaction.timestamp))}
+                                        {transaction.meta && (
+                                            <>
+                                                <span className="mx-2 text-gray-300">•</span>
+                                                <span>{transaction.meta}</span>
+                                            </>
+                                        )}
+                                    </p>
+                                    {transaction.contribution?.notes && (
+                                        <p className="text-gray-500">{transaction.contribution.notes}</p>
                                     )}
+                                    {transaction.expense?.title &&
+                                        transaction.expense.title !== 'Expense' && (
+                                            <p className="text-gray-500">
+                                                {transaction.expense.title}
+                                            </p>
+                                        )}
                                 </div>
                             </div>
                             <div className="mt-3 flex flex-col items-start gap-3 sm:mt-0 sm:flex-row sm:items-center sm:gap-4">

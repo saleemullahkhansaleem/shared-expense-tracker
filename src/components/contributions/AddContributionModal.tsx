@@ -46,7 +46,6 @@ const createDefaultForm = (groupId = '', userId = '') => ({
     userId,
     amount: '',
     month: monthOptions[0]?.value ?? '',
-    paymentDate: today(),
     details: '',
 })
 
@@ -95,21 +94,21 @@ export function AddContributionModal({ isOpen, onClose, onSuccess, groupId, grou
             const data = await response.json()
             const mapped: GroupOption[] = Array.isArray(data)
                 ? data
-                      .filter((group: any) =>
-                          group.members?.some(
-                              (member: any) =>
-                                  member.userId === currentUserId && member.role === 'ADMIN'
-                          )
-                      )
-                      .map((group: any) => ({
-                          id: group.id,
-                          name: group.name,
-                          members:
-                              group.members?.map((member: any) => ({
-                                  id: member.user?.id ?? member.id,
-                                  name: member.user?.name ?? 'Unknown member',
-                              })) ?? [],
-                      }))
+                    .filter((group: any) =>
+                        group.members?.some(
+                            (member: any) =>
+                                member.userId === currentUserId && member.role === 'ADMIN'
+                        )
+                    )
+                    .map((group: any) => ({
+                        id: group.id,
+                        name: group.name,
+                        members:
+                            group.members?.map((member: any) => ({
+                                id: member.user?.id ?? member.id,
+                                name: member.user?.name ?? 'Unknown member',
+                            })) ?? [],
+                    }))
                 : []
 
             setGroups(mapped)
@@ -191,23 +190,28 @@ export function AddContributionModal({ isOpen, onClose, onSuccess, groupId, grou
         }
 
         try {
+            const payload: Record<string, any> = {
+                userId: formData.userId,
+                amount: parseFloat(formData.amount),
+                month: formData.month,
+                groupId: formData.groupId,
+            }
+            const trimmedNotes = formData.details?.trim() ?? ''
+            if (trimmedNotes.length > 0) {
+                payload.notes = trimmedNotes
+            }
+
             const response = await fetch('/api/contributions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    userId: formData.userId,
-                    amount: parseFloat(formData.amount),
-                    month: formData.month,
-                    groupId: formData.groupId,
-                    notes: formData.details?.trim() ?? '',
-                }),
+                body: JSON.stringify(payload),
             })
 
             if (!response.ok) {
                 const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to add contribution')
+                throw new Error(errorData.error || errorData.details || 'Failed to add contribution')
             }
 
             const defaultMember = selectedGroup?.members[0]?.id ?? ''

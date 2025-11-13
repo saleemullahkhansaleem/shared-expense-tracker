@@ -132,6 +132,7 @@ export default async function GroupOverviewPage({
                     month: contribution.month,
                     createdAt: createdAt.toISOString(),
                     userId: contribution.userId,
+                    notes: (contribution as any).notes ?? null,
                     user: contribution.user
                         ? {
                             id: contribution.user.id,

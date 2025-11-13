@@ -14,6 +14,7 @@ type ContributionSummary = {
     month: string
     createdAt: string
     userId: string
+    notes?: string | null
     user: {
         id: string
         name: string
@@ -39,6 +40,7 @@ const normalizeContribution = (
     fallbackGroup: { id: string; name: string }
 ): ContributionSummary => ({
     ...contribution,
+    notes: contribution.notes ?? null,
     user: contribution.user
         ? {
               id: contribution.user.id,
@@ -161,6 +163,9 @@ export function GroupRecentContributionsCard({
                                 <p className="text-xs text-gray-500">
                                     {contribution.month} • {formatDate(new Date(contribution.createdAt))}
                                 </p>
+                                {contribution.notes && (
+                                    <p className="mt-1 text-xs text-gray-600 line-clamp-2">{contribution.notes}</p>
+                                )}
                             </div>
                             <div className="flex items-center space-x-2">
                                 <p className="text-sm font-medium text-green-600">
