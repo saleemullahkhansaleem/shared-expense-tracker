@@ -379,7 +379,6 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
                                     isLoading ||
                                     !formData.groupId ||
                                     !formData.userId ||
-                                    !formData.title ||
                                     !formData.category ||
                                     !formData.amount ||
                                     !formData.paymentSource
