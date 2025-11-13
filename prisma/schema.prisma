@@ -36,6 +36,7 @@ model Contribution {
   groupId   String?  @db.ObjectId  // Made optional for migration
   amount    Float
   month     String
+  notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

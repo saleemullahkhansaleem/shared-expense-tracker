@@ -47,6 +47,7 @@ const createDefaultForm = (groupId = '', userId = '') => ({
     amount: '',
     month: monthOptions[0]?.value ?? '',
     paymentDate: today(),
+    details: '',
 })
 
 export function AddContributionModal({ isOpen, onClose, onSuccess, groupId, groupName, members }: AddContributionModalProps) {
@@ -200,6 +201,7 @@ export function AddContributionModal({ isOpen, onClose, onSuccess, groupId, grou
                     amount: parseFloat(formData.amount),
                     month: formData.month,
                     groupId: formData.groupId,
+                    notes: formData.details?.trim() ?? '',
                 }),
             })
 
@@ -320,6 +322,20 @@ export function AddContributionModal({ isOpen, onClose, onSuccess, groupId, grou
                                 min="0"
                                 step="0.01"
                                 required
+                            />
+                        </div>
+
+                        <div>
+                            <label htmlFor="details" className="block text-sm font-medium text-gray-700 mb-1">
+                                Contribution Details <span className="text-xs text-gray-400">(optional)</span>
+                            </label>
+                            <textarea
+                                id="details"
+                                value={formData.details}
+                                onChange={(event) => handleChange('details', event.target.value)}
+                                placeholder="Add notes or context for this contribution"
+                                rows={3}
+                                className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
                             />
                         </div>
 
