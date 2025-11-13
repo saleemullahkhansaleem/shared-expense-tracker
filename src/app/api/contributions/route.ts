@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     const trimmedNotes =
       typeof notes === 'string' ? notes.trim() : ''
 
-    const data: any = {
+    const data = {
       userId,
       amount: parsedAmount,
       month,
@@ -141,50 +141,48 @@ export async function POST(request: NextRequest) {
       data.notes = trimmedNotes
     }
 
-    let contribution
-    try {
-      contribution = await prisma.contribution.create({
-        data,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-          group: {
-            select: {
-              id: true,
-              name: true,
-            },
+    const contribution = await prisma.contribution.create({
+      data,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           },
         },
-      })
-    } catch (error) {
-      if (includeNotes && trimmedNotes.length > 0) {
-        console.warn('Create contribution with notes failed, retrying without notes', error)
-        delete data.notes
-        contribution = await prisma.contribution.create({
-          data,
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            group: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
+        group: {
+          select: {
+            id: true,
+            name: true,
           },
+        },
+      },
+    })
+
+    if (includeNotes) {
+      if (trimmedNotes.length > 0) {
+        await prisma.$runCommandRaw({
+          update: 'contributions',
+          updates: [
+            {
+              q: { _id: { $oid: contribution.id } },
+              u: { $set: { notes: trimmedNotes } },
+            },
+          ],
         })
+        ;(contribution as any).notes = trimmedNotes
       } else {
-        throw error
+        await prisma.$runCommandRaw({
+          update: 'contributions',
+          updates: [
+            {
+              q: { _id: { $oid: contribution.id } },
+              u: { $unset: { notes: '' } },
+            },
+          ],
+        })
+        ;(contribution as any).notes = null
       }
     }
 

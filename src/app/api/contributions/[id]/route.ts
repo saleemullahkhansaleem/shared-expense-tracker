@@ -86,7 +86,7 @@ export async function PUT(
 
     const trimmedNotes = typeof notes === "string" ? notes.trim() : "";
 
-    const data: any = {
+    const data = {
       userId,
       amount: parsedAmount,
       month,
@@ -94,10 +94,6 @@ export async function PUT(
     };
 
     const includeNotes = Object.prototype.hasOwnProperty.call(body, "notes");
-
-    if (includeNotes && trimmedNotes.length > 0) {
-      data.notes = trimmedNotes;
-    }
 
     let contribution;
     try {
@@ -123,33 +119,32 @@ export async function PUT(
         },
       });
     } catch (error) {
-      if (includeNotes && trimmedNotes.length > 0) {
-        console.warn(
-          "Update contribution with notes failed, retrying without notes",
-          error
-        );
-        delete data.notes;
-        contribution = await prisma.contribution.update({
-          where: { id },
-          data,
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
+      throw error;
+    }
+
+    if (includeNotes) {
+      if (trimmedNotes.length > 0) {
+        await prisma.$runCommandRaw({
+          update: "contributions",
+          updates: [
+            {
+              q: { _id: { $oid: id } },
+              u: { $set: { notes: trimmedNotes } },
             },
-            group: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
+          ],
         });
+        (contribution as any).notes = trimmedNotes;
       } else {
-        throw error;
+        await prisma.$runCommandRaw({
+          update: "contributions",
+          updates: [
+            {
+              q: { _id: { $oid: id } },
+              u: { $unset: { notes: "" } },
+            },
+          ],
+        });
+        (contribution as any).notes = null;
       }
     }
 
