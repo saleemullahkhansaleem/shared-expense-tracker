@@ -1,33 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { Prisma } from '@prisma/client'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const month = searchParams.get('month')
-    const status = searchParams.get('status')
-    const search = searchParams.get('search')
-    const groupId = searchParams.get('groupId')
+    const { searchParams } = new URL(request.url);
+    const month = searchParams.get("month");
+    const status = searchParams.get("status");
+    const search = searchParams.get("search");
+    const groupId = searchParams.get("groupId");
 
-    const where: any = {}
+    const where: any = {};
 
-    if (month && month !== 'All') {
-      where.month = month
+    if (month && month !== "All") {
+      where.month = month;
     }
 
     if (groupId) {
-      where.groupId = groupId
+      where.groupId = groupId;
     }
 
     if (search) {
       where.user = {
-        name: { contains: search, mode: 'insensitive' },
-      }
+        name: { contains: search, mode: "insensitive" },
+      };
     }
 
     const contributions = await prisma.contribution.findMany({
@@ -48,65 +48,77 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
-    })
+    });
 
-    let filteredContributions = contributions
-    if (status && status !== 'All') {
-      if (status === 'PAID') {
-        filteredContributions = contributions.filter((c) => c.amount > 0)
-      } else if (status === 'PENDING') {
-        filteredContributions = contributions.filter((c) => c.amount === 0)
+    let filteredContributions = contributions;
+    if (status && status !== "All") {
+      if (status === "PAID") {
+        filteredContributions = contributions.filter((c) => c.amount > 0);
+      } else if (status === "PENDING") {
+        filteredContributions = contributions.filter((c) => c.amount === 0);
       }
     }
 
-    return NextResponse.json(filteredContributions)
+    return NextResponse.json(filteredContributions);
   } catch (error) {
-    console.error('Error fetching contributions:', error)
+    console.error("Error fetching contributions:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch contributions' },
-      { status: 500 },
-    )
+      { error: "Failed to fetch contributions" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
     }
 
-    const actorId = (session.user as any)?.id as string | undefined
-    const actorRole = (session.user as any)?.role
+    const actorId = (session.user as any)?.id as string | undefined;
+    const actorRole = (session.user as any)?.role;
 
-    const body = await request.json()
-    const { userId, amount, month, groupId, notes } = body
+    const body = await request.json();
+    const { userId, amount, month, groupId, notes } = body;
 
     if (!groupId) {
-      return NextResponse.json({ error: 'groupId is required' }, { status: 400 })
+      return NextResponse.json(
+        { error: "groupId is required" },
+        { status: 400 }
+      );
     }
 
     if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+      return NextResponse.json(
+        { error: "userId is required" },
+        { status: 400 }
+      );
     }
 
-    let hasPermission = actorRole === 'ADMIN'
+    let hasPermission = actorRole === "ADMIN";
 
     if (!hasPermission && actorId) {
       const actorMembership = await prisma.groupMember.findFirst({
         where: {
           groupId,
           userId: actorId,
-          role: 'ADMIN',
+          role: "ADMIN",
         },
-      })
-      hasPermission = !!actorMembership
+      });
+      hasPermission = !!actorMembership;
     }
 
     if (!hasPermission) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+      return NextResponse.json(
+        { error: "Admin access required" },
+        { status: 403 }
+      );
     }
 
     const membership = await prisma.groupMember.findFirst({
@@ -114,33 +126,35 @@ export async function POST(request: NextRequest) {
         groupId,
         userId,
       },
-    })
+    });
 
     if (!membership) {
-      return NextResponse.json({ error: 'User is not a member of this group' }, { status: 400 })
+      return NextResponse.json(
+        { error: "User is not a member of this group" },
+        { status: 400 }
+      );
     }
 
-    const parsedAmount = typeof amount === 'number' ? amount : parseFloat(amount)
+    const parsedAmount =
+      typeof amount === "number" ? amount : parseFloat(amount);
 
     if (Number.isNaN(parsedAmount)) {
-      return NextResponse.json({ error: 'Amount must be a valid number' }, { status: 400 })
+      return NextResponse.json(
+        { error: "Amount must be a valid number" },
+        { status: 400 }
+      );
     }
 
-    const trimmedNotes =
-      typeof notes === 'string' ? notes.trim() : ''
+    const trimmedNotes = typeof notes === "string" ? notes.trim() : "";
 
     const data: Prisma.ContributionUncheckedCreateInput = {
       userId,
       amount: parsedAmount,
       month,
       groupId,
-    }
+    };
 
-    const includeNotes = Object.prototype.hasOwnProperty.call(body, 'notes')
-
-    if (includeNotes && trimmedNotes.length > 0) {
-      data.notes = trimmedNotes
-    }
+    const includeNotes = Object.prototype.hasOwnProperty.call(body, "notes");
 
     const contribution = await prisma.contribution.create({
       data,
@@ -159,40 +173,40 @@ export async function POST(request: NextRequest) {
           },
         },
       },
-    })
+    });
 
     if (includeNotes) {
       if (trimmedNotes.length > 0) {
         await prisma.$runCommandRaw({
-          update: 'contributions',
+          update: "contributions",
           updates: [
             {
               q: { _id: { $oid: contribution.id } },
               u: { $set: { notes: trimmedNotes } },
             },
           ],
-        })
-        ;(contribution as any).notes = trimmedNotes
+        });
+        (contribution as any).notes = trimmedNotes;
       } else {
         await prisma.$runCommandRaw({
-          update: 'contributions',
+          update: "contributions",
           updates: [
             {
               q: { _id: { $oid: contribution.id } },
-              u: { $unset: { notes: '' } },
+              u: { $unset: { notes: "" } },
             },
           ],
-        })
-        ;(contribution as any).notes = null
+        });
+        (contribution as any).notes = null;
       }
     }
 
-    return NextResponse.json(contribution, { status: 201 })
+    return NextResponse.json(contribution, { status: 201 });
   } catch (error) {
-    console.error('Error creating contribution:', error)
+    console.error("Error creating contribution:", error);
     return NextResponse.json(
-      { error: 'Failed to create contribution' },
-      { status: 500 },
-    )
+      { error: "Failed to create contribution" },
+      { status: 500 }
+    );
   }
 }

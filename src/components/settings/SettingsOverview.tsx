@@ -18,7 +18,6 @@ export function SettingsOverview() {
 
     const handleSaveSettings = () => {
         // TODO: Implement API call to save settings
-        console.log('Saving settings...')
     }
 
     return (
