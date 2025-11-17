@@ -41,7 +41,9 @@ export default async function GroupOverviewPage({
     const userId = (session.user as any)?.id
     const groupId = params.groupId
 
-    const group = await prisma.group.findUnique({
+    let group
+    try {
+        group = await prisma.group.findUnique({
         where: { id: groupId },
         include: {
             members: {
@@ -66,9 +68,17 @@ export default async function GroupOverviewPage({
                     },
                 },
                 orderBy: { date: 'desc' },
+                },
             },
-        },
-    })
+        })
+    } catch (error: any) {
+        // Handle database connection errors
+        if (error.code === 'P1001' || error.name === 'PrismaClientInitializationError') {
+            console.error('Database connection error:', error)
+            throw new Error('Unable to connect to the database. Please check your connection and try again.')
+        }
+        throw error
+    }
 
     if (!group) {
         notFound()
@@ -127,23 +137,23 @@ export default async function GroupOverviewPage({
                 linkHref: `/dashboard/groups/${group.id}/contributions?highlight=${contribution.id}`,
                 meta: `Contribution for ${contribution.month}`,
                 contribution: {
-                    id: contribution.id,
-                    amount: contribution.amount,
-                    month: contribution.month,
+        id: contribution.id,
+        amount: contribution.amount,
+        month: contribution.month,
                     createdAt: createdAt.toISOString(),
-                    userId: contribution.userId,
+        userId: contribution.userId,
                     notes: (contribution as any).notes ?? null,
-                    user: contribution.user
-                        ? {
-                            id: contribution.user.id,
-                            name: contribution.user.name,
-                            email: contribution.user.email ?? undefined,
-                        }
-                        : null,
-                    group: {
-                        id: group.id,
-                        name: group.name,
-                    },
+        user: contribution.user
+            ? {
+                  id: contribution.user.id,
+                  name: contribution.user.name,
+                  email: contribution.user.email ?? undefined,
+              }
+            : null,
+        group: {
+            id: group.id,
+            name: group.name,
+        },
                 },
             }
         }),
@@ -159,20 +169,20 @@ export default async function GroupOverviewPage({
                 linkHref: `/dashboard/groups/${group.id}/expenses?highlight=${expense.id}`,
                 meta: expense.paymentSource === 'POCKET' ? 'Paid from pocket' : 'Paid from contributions',
                 expense: {
-                    id: expense.id,
-                    title: expense.title,
-                    category: expense.category,
-                    amount: expense.amount,
+        id: expense.id,
+        title: expense.title,
+        category: expense.category,
+        amount: expense.amount,
                     date: date.toISOString(),
-                    paymentSource: expense.paymentSource,
-                    userId: expense.userId,
-                    user: expense.user
-                        ? {
-                            id: expense.user.id,
-                            name: expense.user.name,
-                            email: expense.user.email ?? undefined,
-                        }
-                        : null,
+        paymentSource: expense.paymentSource,
+        userId: expense.userId,
+        user: expense.user
+            ? {
+                  id: expense.user.id,
+                  name: expense.user.name,
+                  email: expense.user.email ?? undefined,
+              }
+            : null,
                     notes: (expense as any).details ?? null,
                     group: {
                         id: group.id,
@@ -260,7 +270,7 @@ export default async function GroupOverviewPage({
                     <CardHeader className="flex items-center justify-between">
                         <div>
                             <CardTitle>Latest Transactions</CardTitle>
-                            <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500">
                                 Most recent contributions and expenses for this group.
                             </p>
                         </div>

@@ -41,7 +41,6 @@ interface EditExpenseModalProps {
     expense: Expense | null
 }
 
-const categories = ['Milk', 'Chicken', 'Vegetables', 'Other']
 const paymentSources = [
     {
         value: 'COLLECTED',
@@ -58,6 +57,7 @@ const paymentSources = [
 export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditExpenseModalProps) {
     const router = useRouter()
     const [groups, setGroups] = useState<GroupOption[]>([])
+    const [categories, setCategories] = useState<string[]>([])
     const [formData, setFormData] = useState({
         groupId: '',
         userId: '',
@@ -124,6 +124,34 @@ export function EditExpenseModal({ isOpen, onClose, onSuccess, expense }: EditEx
     useEffect(() => {
         loadInitialData()
     }, [loadInitialData])
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const response = await fetch('/api/categories', {
+                    credentials: 'include',
+                    cache: 'no-store',
+                })
+
+                if (!response.ok) {
+                    throw new Error('Failed to load categories')
+                }
+
+                const data = await response.json()
+                const categoryNames = Array.isArray(data)
+                    ? data.map((cat: any) => cat.name).filter(Boolean)
+                    : []
+                setCategories(categoryNames.length > 0 ? categoryNames : ['Other'])
+            } catch (err) {
+                console.error('Error fetching categories:', err)
+                setCategories(['Other'])
+            }
+        }
+
+        if (isOpen) {
+            fetchCategories()
+        }
+    }, [isOpen])
 
     if (!isOpen || !expense) return null
 

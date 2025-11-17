@@ -12,6 +12,7 @@ import {
     ArrowPathIcon,
     ChevronDownIcon,
 } from '@heroicons/react/24/outline'
+import { TagIcon } from 'lucide-react'
 
 type DashboardNavLink = {
     name: string
@@ -112,10 +113,10 @@ export function DashboardNav({ onNavigate }: DashboardNavProps = {}) {
     const generalLinks: DashboardNavLink[] = useMemo(() => {
         const base: DashboardNavLink[] = [
             { name: 'Dashboard', href: '/dashboard', icon: Squares2X2Icon },
-            { name: 'Groups', href: '/dashboard/groups', icon: UserGroupIcon },
         ]
 
         if (isAdmin) {
+            base.push({ name: 'Categories', href: '/dashboard/categories', icon: TagIcon })
             base.push({ name: 'Users', href: '/dashboard/users', icon: UsersIcon })
         }
 

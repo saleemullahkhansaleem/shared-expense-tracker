@@ -26,29 +26,39 @@ export default async function GroupLayout({
         notFound()
     }
 
-    const group = await prisma.group.findUnique({
-        where: { id: groupId },
-        select: {
-            id: true,
-            name: true,
-            description: true,
-            inviteCode: true,
-            monthlyAmount: true,
-            createdAt: true,
-            members: {
-                select: {
-                    userId: true,
-                    role: true,
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
+    let group
+    try {
+        group = await prisma.group.findUnique({
+            where: { id: groupId },
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                inviteCode: true,
+                monthlyAmount: true,
+                createdAt: true,
+                members: {
+                    select: {
+                        userId: true,
+                        role: true,
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
                         },
                     },
                 },
             },
-        },
-    })
+        })
+    } catch (error: any) {
+        // Handle database connection errors
+        if (error.code === 'P1001' || error.name === 'PrismaClientInitializationError') {
+            console.error('Database connection error:', error)
+            throw new Error('Unable to connect to the database. Please check your connection and try again.')
+        }
+        throw error
+    }
 
     if (!group) {
         notFound()
