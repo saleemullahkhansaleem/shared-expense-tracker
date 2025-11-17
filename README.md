@@ -5,6 +5,7 @@ A modern web application built with Next.js, TypeScript, and Prisma for managing
 ## 🚀 Features
 
 ### Core Functionality
+
 - **User Management**: Secure authentication with NextAuth.js
 - **Monthly Contributions**: Track individual contributions from each member
 - **Expense Management**: Record expenses with categories and payment sources
@@ -13,6 +14,7 @@ A modern web application built with Next.js, TypeScript, and Prisma for managing
 - **Role-based Access**: Admin and User roles with different permissions
 
 ### Key Features
+
 - 📊 **Dashboard**: Overview of finances, charts, and quick stats
 - 💰 **Contributions**: Add and track monthly contributions
 - 🧾 **Expenses**: Categorize and manage shared expenses
@@ -32,30 +34,35 @@ A modern web application built with Next.js, TypeScript, and Prisma for managing
 
 ## 📋 Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - PostgreSQL database
 - npm or yarn package manager
 
 ## 🚀 Getting Started
 
 ### 1. Clone the repository
+
 ```bash
 git clone <repository-url>
 cd shared-expense-tracker
 ```
 
 ### 2. Install dependencies
+
 ```bash
 npm install
 ```
 
 ### 3. Set up environment variables
+
 Copy the example environment file and configure your database:
+
 ```bash
 cp env.example .env.local
 ```
 
 Update `.env.local` with your configuration:
+
 ```env
 # Database
 DATABASE_URL="postgresql://username:password@localhost:5432/expense_tracker"
@@ -66,6 +73,7 @@ NEXTAUTH_SECRET="your-secret-key-here"
 ```
 
 ### 4. Set up the database
+
 ```bash
 # Generate Prisma client
 npm run db:generate
@@ -78,6 +86,7 @@ npm run db:studio
 ```
 
 ### 5. Run the development server
+
 ```bash
 npm run dev
 ```
@@ -87,6 +96,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## 🗄️ Database Schema
 
 ### Users
+
 - `id`: Unique identifier
 - `name`: Full name
 - `email`: Email address (unique)
@@ -95,6 +105,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `createdAt`: Account creation timestamp
 
 ### Contributions
+
 - `id`: Unique identifier
 - `userId`: Reference to user
 - `amount`: Contribution amount
@@ -102,6 +113,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `createdAt`: Contribution timestamp
 
 ### Expenses
+
 - `id`: Unique identifier
 - `userId`: Reference to user
 - `title`: Expense description
@@ -117,10 +129,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `/auth/signin` - Sign in page
 - `/auth/signup` - Sign up page
 - `/dashboard` - Main dashboard
-- `/dashboard/expenses` - Expense management
-- `/dashboard/contributions` - Contribution tracking
-- `/dashboard/reports` - Financial reports
-- `/dashboard/members` - Member management
 - `/dashboard/settings` - App settings
 
 ## 🔧 Available Scripts
@@ -161,13 +169,16 @@ Charts and analytics are powered by Recharts:
 ## 🚀 Deployment
 
 ### Vercel (Recommended)
+
 1. Push your code to GitHub
 2. Connect your repository to Vercel
 3. Set environment variables in Vercel dashboard
 4. Deploy automatically on push
 
 ### Other Platforms
+
 The app can be deployed to any platform that supports Next.js:
+
 - Netlify
 - Railway
 - DigitalOcean App Platform

@@ -121,12 +121,6 @@ export default async function DashboardPage() {
                                 Latest contributions and expenses from your groups.
                             </p>
                         </div>
-                        <Link
-                            href="/dashboard/expenses"
-                            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-                        >
-                            View expenses
-                        </Link>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
