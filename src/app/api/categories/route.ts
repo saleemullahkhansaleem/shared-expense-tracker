@@ -19,6 +19,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(categories)
     } catch (error: any) {
         console.error('Error fetching categories:', error)
+        console.error('Error details:', {
+            code: error.code,
+            name: error.name,
+            message: error.message,
+            meta: error.meta,
+        })
 
         // Handle Prisma errors
         if (error.code === 'P1001' || error.name === 'PrismaClientInitializationError') {
@@ -28,8 +34,9 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        // Check if the model doesn't exist (schema not migrated)
-        if (error.message?.includes('category') || error.message?.includes('Category')) {
+        // Check for common Prisma errors
+        if (error.code === 'P2001' || error.code === 'P2025') {
+            // Record not found or model doesn't exist
             return NextResponse.json(
                 {
                     error: 'Category model not found. Please run: npx prisma db push && npx prisma generate',
@@ -39,10 +46,32 @@ export async function GET(request: NextRequest) {
             )
         }
 
+        // Check if the error message mentions category or model
+        const errorMessage = error.message?.toLowerCase() || ''
+        if (errorMessage.includes('category') ||
+            errorMessage.includes('model') ||
+            errorMessage.includes('does not exist') ||
+            errorMessage.includes('unknown model')) {
+            return NextResponse.json(
+                {
+                    error: 'Category model not found. Please run: npx prisma db push && npx prisma generate',
+                    categories: [] // Return empty array as fallback
+                },
+                { status: 200 } // Return 200 with empty array so UI doesn't break
+            )
+        }
+
+        // For MongoDB, if collection doesn't exist, it usually just returns empty array
+        // So if we're here, it's likely a different error
         return NextResponse.json(
             {
-                error: 'Failed to fetch categories',
-                categories: [] // Return empty array as fallback
+                error: `Failed to fetch categories: ${error.message || 'Unknown error'}`,
+                categories: [], // Return empty array as fallback
+                details: process.env.NODE_ENV === 'development' ? {
+                    code: error.code,
+                    name: error.name,
+                    message: error.message,
+                } : undefined
             },
             { status: 200 } // Return 200 with empty array so UI doesn't break
         )

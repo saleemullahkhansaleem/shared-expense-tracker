@@ -34,14 +34,34 @@ export function CategoriesList() {
                 cache: 'no-store',
             })
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch categories')
+            const data = await response.json()
+
+            // Handle different response formats
+            if (Array.isArray(data)) {
+                // Success: data is an array of categories
+                setCategories(data)
+            } else if (data.categories && Array.isArray(data.categories)) {
+                // Error case: API returned object with categories array
+                setCategories(data.categories)
+                if (data.error) {
+                    setError(data.error)
+                }
+            } else if (data.error) {
+                // Error case: API returned error message
+                setError(data.error)
+                setCategories([])
+            } else {
+                // Fallback
+                setCategories([])
             }
 
-            const data = await response.json()
-            setCategories(data)
+            // Also check response status for non-200 errors
+            if (!response.ok && !data.categories) {
+                throw new Error(data.error || 'Failed to fetch categories')
+            }
         } catch (err: any) {
             setError(err.message || 'Failed to load categories')
+            setCategories([])
         } finally {
             setIsLoading(false)
         }
